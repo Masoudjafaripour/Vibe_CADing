@@ -1,0 +1,3 @@
+stages:
+  generate:
+    cmd: python run_pipeline.py
