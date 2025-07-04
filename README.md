@@ -1,6 +1,6 @@
 # Vibe-CADing
 
-**Vibe-CADing** is a diffusion-powered pipeline for generating and refining 3D part designs in voxel space. The system integrates structural and aesthetic feedback to iteratively guide the generation of functional CAD-like shapes.
+**Vibe-CADing** is a generative model (diffusion and VAE) pipeline for generating and refining 3D part designs in voxel space. The system integrates structural and aesthetic feedback to iteratively guide the generation of functional CAD-like shapes.
 
 ## Features
 
