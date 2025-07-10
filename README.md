@@ -9,6 +9,7 @@
 * **Refinement Loop** to improve samples based on feedback
 * **Simple 3D U-Net** architecture for noise prediction
 * **Synthetic Dataset Support** (cubes, spheres, etc.)
+* **RAG-like** structure to find most related available CAD
 
 ## Roadmap
 
