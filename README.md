@@ -11,7 +11,6 @@
 * **Synthetic Dataset Support** (cubes, spheres, etc.)
 * **RAG-like** structure to find most related available CAD
 
-
 ## Roadmap
 
 1. Voxel-based dataset generation
