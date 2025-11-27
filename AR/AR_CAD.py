@@ -1,4 +1,25 @@
-# simple AR-based CAD generation
+"""
+Autoregressive CAD Generator (PixelCNN-style)
+---------------------------------------------
+
+This code implements a simple autoregressive (AR) model for generating 2D CAD layouts.
+We treat a CAD design as a discrete grid of tokens (e.g., empty cell, plate, hole,
+beam, joint). The model learns the joint probability:
+
+    p(grid) = Π_{i,j} p(x_{i,j} | all cells above and to the left)
+
+using masked convolutions exactly like PixelCNN. After training on example CAD grids,
+the model can sample new designs one cell at a time, producing valid structural
+patterns learned from the dataset.
+
+The output is a 2D integer grid of CAD cell types. This grid can be:
+    - visualized directly with matplotlib (like a blueprint),
+    - converted to vector CAD formats (SVG/DXF),
+    - or extruded into a 3D mesh (STL) for downstream CAD workflows.
+
+This script trains the AR model on dummy random grids for demonstration purposes,
+but the structure is ready for real CAD datasets.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
