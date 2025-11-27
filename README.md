@@ -1,23 +1,53 @@
 # Vibe-CADing
 
-**Vibe-CADing** is a generative model (diffusion and VAE) pipeline for generating and refining 3D part designs in voxel space. The system integrates structural and aesthetic feedback to iteratively guide the generation of functional CAD-like shapes.
+**Vibe-CADing** is a unified generative design pipeline exploring *two complementary families* of models:
+
+1. **Voxel-based Diffusion + VAE models** for 3D shape generation and refinement
+2. **Autoregressive (AR) PixelCNN-style models** for 2D CAD layout generation (token grids that can be extruded into 3D)
+
+Together, these components form the foundation of a "Vibe-CAD" workflow — an iterative, feedback-driven system for creating functional CAD-like geometry.
+
+---
 
 ## Features
 
-* **3D Voxel Generation** using a denoising diffusion probabilistic model (DDPM)
-* **Custom Feedback Functions** for symmetry, balance, and design constraints
-* **Refinement Loop** to improve samples based on feedback
-* **Simple 3D U-Net** architecture for noise prediction
-* **Synthetic Dataset Support** (cubes, spheres, etc.)
-* **RAG-like** structure to find most related available CAD
+### 🔶 3D Generative Models
+
+* **3D Voxel Generation** via DDPM (denoising diffusion)
+* **VAE-based latent compression** for low‑resolution voxel representations
+* **Simple 3D U‑Net** backbone for noise prediction
+
+### 🔷 CAD Autoregressive Generator (NEW)
+
+* PixelCNN‑style masked convolutions
+* Generates **2D CAD layouts** as token grids
+* Grids can be exported as **SVG/DXF** or **extruded to STL**
+* Supports future conditioning on text, sketches, or constraints
+
+### 🎯 Feedback‑Guided Refinement
+
+* Symmetry scoring
+* Center‑of‑mass and balance metrics
+* Structural heuristics for manufacturability
+
+### 🗂 RAG‑like Retrieval
+
+* Retrieve the most similar CAD examples (voxel or layout)
+* Use retrieved samples to prime generation or serve as constraints
+
+---
 
 ## Roadmap
 
-1. Voxel-based dataset generation
-2. DDPM training on 3D shapes
-3. Feedback scoring (symmetry, CoM, etc.)
-4. Guided refinement via feedback
-5. Optional text-conditioning or mesh-based upgrades
+1. Voxel dataset generation (synthetic primitives + real parts)
+2. DDPM training on 3D voxel shapes
+3. Spatial + structural feedback scoring
+4. Iterative refinement loop
+5. Add text/sketch conditioning
+6. Connect AR 2D CAD grid → voxel extrusion → diffusion refinement
+7. Optional mesh-based branch (marching cubes → mesh diffusion)
+
+---
 
 ## Installation
 
@@ -25,26 +55,55 @@
 pip install torch numpy matplotlib scikit-image open3d
 ```
 
+Additional dependencies for AR CAD model:
+
+```bash
+pip install torchvision
+```
+
+---
+
 ## Usage
 
-* Run `train.py` to train the diffusion model
-* Run `sample.py` to generate new 3D parts
-* Visualize outputs using `visualize.py`
+### Diffusion / Voxel Models
+
+* `train.py` – train the diffusion model
+* `sample.py` – generate new 3D voxel parts
+* `visualize.py` – render voxel grids or meshes
+
+### AR CAD Model
+
+* `ar_cad_train.py` – train PixelCNN‑style CAD generator
+* `ar_cad_sample.py` – sample new CAD token grids
+* Visualization via matplotlib or DXF/STL exporters
+
+---
 
 ## Folder Structure
 
 ```
 vibe-cading/
-├── data/           # voxel data
-├── models/         # 3D U-Net and helpers
-├── diffusion/      # noise scheduler and DDPM logic
-├── feedback/       # scoring functions
-├── train.py
-├── sample.py
+├── data/               # voxel data, CAD token grids
+├── models/             # 3D U-Net, VAE, PixelCNN
+├── diffusion/          # DDPM scheduler + sampling
+├── ar/                 # autoregressive CAD generator
+├── feedback/           # symmetry / CoM / structure scoring
+├── train.py            # diffusion training
+├── sample.py           # diffusion sampling
 ├── visualize.py
+├── ar_cad_train.py     # AR CAD training
+├── ar_cad_sample.py    # AR CAD sampling
 └── README.md
 ```
+
+---
 
 ## License
 
 MIT License
+
+---
+
+### Maintainer
+
+**Masoud Jafaripour**
