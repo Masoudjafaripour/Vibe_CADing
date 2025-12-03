@@ -107,14 +107,14 @@ If you use **Vibe-CADing** in research or projects, please cite:
 Masoud Jafaripour. *Vibe-CADing: Conditional CAD Generation and Retrieval for a Text-to-CAD Design Pipeline*. GitHub, 2025.
 
 **BibTeX:**
-
+```
 @misc{vibecading2025,
 author       = {Jafaripour, Masoud},
 title        = {Vibe-CADing: Conditional CAD Generation and Retrieval for a Text-to-CAD Design Pipeline},
 year         = {2025},
 howpublished = {[https://github.com/Masoudjafaripour/Vibe_CADing}](https://github.com/Masoudjafaripour/Vibe_CADing}),
 }
-
+```
 ## License
 
 MIT License
