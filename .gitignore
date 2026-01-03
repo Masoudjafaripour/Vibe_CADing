@@ -1,3 +1,5 @@
 mlruns/
 __pycache__/
 *.pyc
+
+vibe_cading_venv

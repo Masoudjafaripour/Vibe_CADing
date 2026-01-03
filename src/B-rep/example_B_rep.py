@@ -36,3 +36,23 @@ from OCC.Display.SimpleGui import init_display
 display, start_display, _, _ = init_display()
 display.DisplayShape(solid, update=True)
 start_display()
+
+
+from OCC.Core.STEPControl import STEPControl_Writer, STEPControl_AsIs
+
+def save_step(shape, filename="model.step"):
+    writer = STEPControl_Writer()
+    writer.Transfer(shape, STEPControl_AsIs)
+    writer.Write(filename)
+
+save_step(solid, "solid.step")
+
+
+from OCC.Core.IGESControl import IGESControl_Writer
+
+def save_iges(shape, filename="model.igs"):
+    writer = IGESControl_Writer()
+    writer.AddShape(shape)
+    writer.Write(filename)
+
+save_iges(solid, "solid.igs")
