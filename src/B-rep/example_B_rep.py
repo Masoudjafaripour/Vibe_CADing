@@ -45,7 +45,7 @@ def save_step(shape, filename="model.step"):
     writer.Transfer(shape, STEPControl_AsIs)
     writer.Write(filename)
 
-save_step(solid, "solid.step")
+save_step(solid, "solid2.step")
 
 
 from OCC.Core.IGESControl import IGESControl_Writer
@@ -55,4 +55,4 @@ def save_iges(shape, filename="model.igs"):
     writer.AddShape(shape)
     writer.Write(filename)
 
-save_iges(solid, "solid.igs")
+save_iges(solid, "solid2.igs")
