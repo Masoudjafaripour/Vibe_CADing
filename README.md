@@ -66,10 +66,17 @@ These modules form an iterative, feedback-driven workflow for creating, refining
 
 ## Installation
 
-`bash\pip install torch numpy matplotlib scikit-image open3d\`
+```bash
+pip install torch numpy matplotlib scikit-image open3d
+```
 
 Additional dependencies for AR CAD model:
-`bash\pip install torchvision\`
+
+```bash
+pip install torchvision
+```
+
+> `requirements.txt` is currently empty — install per-module dependencies as listed in [Current Implementation Status](#current-implementation-status) below.
 
 ---
 
@@ -107,6 +114,57 @@ vibe-cading/
 ├── ar_cad_sample.py    # AR layout sampling
 └── README.md
 ```
+
+---
+
+## Current Implementation Status
+
+The sections above describe the target design. Below is the **actual state of the code in this repo** as of 2026-08-23, mapped to real file paths — some pieces are working end-to-end prototypes, others are stubs for future work.
+
+| Module | File(s) | Status | Algorithm / Purpose |
+|---|---|---|---|
+| Text → Image → SVG | [src/pipeline/generator.py](src/pipeline/generator.py), [src/pipeline/postprocess.py](src/pipeline/postprocess.py) | ✅ Working | Stable Diffusion + ControlNet (Canny) turns a text prompt into an image; OpenCV Canny edge detection + contour tracing then vectorizes the image into an SVG. Entry point: [src/tests/run_pipeline.py](src/tests/run_pipeline.py) |
+| AR 2D CAD generator | [src/AR/AR_CAD.py](src/AR/AR_CAD.py) | ✅ Working demo | PixelCNN-style masked convolutions (type A/B masks) model `p(grid) = Π p(cell \| cells above & left)` over a 2D grid of discrete CAD cell tokens, trained here on random dummy data; samples new grids autoregressively cell-by-cell |
+| LLM → B-Rep (text-to-CAD) | [src/B-rep/LLM_B_rep.py](src/B-rep/LLM_B_rep.py) | ✅ Working demo | Qwen2.5-3B-Instruct converts a text prompt into a structured JSON CAD spec (e.g. `{"type":"cube","size":5}`); pythonOCC (OpenCascade) builds sketch → wire → face → extruded solid B-rep and displays it |
+| B-Rep primitive example | [src/B-rep/example_B_rep.py](src/B-rep/example_B_rep.py) | ✅ Working demo | Hand-written pythonOCC pipeline: rectangle sketch → wire → face → prism extrusion → export to `.step`/`.igs` (sample outputs in [src/B-rep/results/](src/B-rep/results/)) |
+| CLIP text/image retrieval | [src/CLIP/text2cad_clip.py](src/CLIP/text2cad_clip.py) | ✅ Working demo | Encodes a text query and rendered mesh images with CLIP ViT-B/32, ranks meshes by cosine similarity for retrieval-augmented CAD reuse |
+| Multi-agent orchestration | [src/Agentic/multi_agent_cad.py](src/Agentic/multi_agent_cad.py) | 🚧 Prototype (not runnable as-is) | LangChain + LangGraph Planner → Retriever → Generator → Critic loop with a conditional edge that loops back to the planner until the critic approves; uses outdated LangChain/LangGraph APIs and needs a pre-built FAISS index (`cad_index`) |
+| B-Rep RAG retrieval | [src/B-rep/B_rep_Retrieval.py](src/B-rep/B_rep_Retrieval.py) | 📝 Empty stub | Intended: encode B-rep topology/geometry, store embeddings, retrieve similar CAD models |
+| CVAE model | [src/CVAE/model_cvae.py](src/CVAE/model_cvae.py) | 📝 Empty stub | Conditional VAE for latent 3D geometry compression |
+| Diffusion backbone | [src/models/diffusion.py](src/models/diffusion.py) | 📝 Empty stub | Planned 3D U-Net / DDPM wrapper for voxel diffusion |
+| AR training script | [src/AR/train_text2cad_ar.py](src/AR/train_text2cad_ar.py) | 📝 Empty stub | Planned text-conditioned AR CAD training loop |
+| Pipeline validator/retrainer | [src/pipeline/validator.py](src/pipeline/validator.py), [src/pipeline/retrainer.py](src/pipeline/retrainer.py) | 📝 Empty stub | Planned manufacturability validation and feedback-driven retraining |
+| Web app | [src/webapp/interface.py](src/webapp/interface.py) (Gradio), [src/webapp/main.py](src/webapp/main.py) (FastAPI) | 📝 Empty stub | Planned web UI / API for the pipeline |
+| Streamlit demo | [src/vibe-cading-demo/streamlit_app.py](src/vibe-cading-demo/streamlit_app.py), [visualize.py](src/vibe-cading-demo/visualize.py) | 🚧 Prototype (not runnable as-is) | Streamlit UI that loads canned `.npy` voxel grids (files not included) and renders them with matplotlib `ax.voxels`; `visualize.py` is missing its `streamlit` import |
+| Notebooks | [src/notebooks/](src/notebooks/) | 📝 Empty | Placeholders for diffusion testing and SVG conversion experiments |
+| Data | [data/prompts.jsonl](data/prompts.jsonl) | 📝 Empty | Placeholder for prompt dataset |
+| DVC pipeline | [dvc.yaml](dvc.yaml) | ✅ Present | Single `generate` stage running `python run_pipeline.py` |
+
+## Commands to Run
+
+```bash
+# 1. Text → Image → SVG pipeline (needs: torch, diffusers, pillow, opencv-python, svgwrite; GPU recommended)
+python -m src.tests.run_pipeline
+
+# 2. Autoregressive PixelCNN CAD grid generator (needs: torch, matplotlib)
+python src/AR/AR_CAD.py
+
+# 3. LLM (Qwen2.5) → CAD spec → B-Rep solid (needs: torch, transformers, pythonocc-core)
+python src/B-rep/LLM_B_rep.py
+
+# 4. B-Rep primitive example → STEP/IGES export (needs: pythonocc-core)
+python src/B-rep/example_B_rep.py
+
+# 5. CLIP-based text/mesh retrieval (needs: torch, clip, pillow)
+python src/CLIP/text2cad_clip.py
+
+# DVC-tracked pipeline stage
+dvc repro generate
+```
+
+Docker: the [Dockerfile](Dockerfile) sets up a `python:3.10` base image with `/app` as the working directory (dependency install and entrypoint are not yet defined — add them if containerizing).
+
+For the B-Rep + LLM sub-pipeline specifically, see [src/B-rep/README.md](src/B-rep/README.md) for its own architecture notes.
 
 ---
 
