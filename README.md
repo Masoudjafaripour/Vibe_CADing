@@ -127,6 +127,7 @@ The sections above describe the target design. Below is the **actual state of th
 | AR 2D CAD generator | [src/AR/AR_CAD.py](src/AR/AR_CAD.py) | ✅ Working demo | PixelCNN-style masked convolutions (type A/B masks) model `p(grid) = Π p(cell \| cells above & left)` over a 2D grid of discrete CAD cell tokens, trained here on random dummy data; samples new grids autoregressively cell-by-cell |
 | LLM → B-Rep (text-to-CAD) | [src/B-rep/LLM_B_rep.py](src/B-rep/LLM_B_rep.py) | ✅ Working demo | Qwen2.5-3B-Instruct converts a text prompt into a structured JSON CAD spec (e.g. `{"type":"cube","size":5}`); pythonOCC (OpenCascade) builds sketch → wire → face → extruded solid B-rep and displays it |
 | B-Rep primitive example | [src/B-rep/example_B_rep.py](src/B-rep/example_B_rep.py) | ✅ Working demo | Hand-written pythonOCC pipeline: rectangle sketch → wire → face → prism extrusion → export to `.step`/`.igs` (sample outputs in [src/B-rep/results/](src/B-rep/results/)) |
+| CAD generation harness | [src/CAD_Harness/](src/CAD_Harness/) | ✅ Working demo | LLM writes CadQuery/build123d code → executes in a subprocess → STEP export; failures feed the traceback back into the prompt and retry (CADCodeVerify-style). Verified with Qwen3-8B on a simple cube and a mounting plate with holes + fillets |
 | CLIP text/image retrieval | [src/CLIP/text2cad_clip.py](src/CLIP/text2cad_clip.py) | ✅ Working demo | Encodes a text query and rendered mesh images with CLIP ViT-B/32, ranks meshes by cosine similarity for retrieval-augmented CAD reuse |
 | Multi-agent orchestration | [src/Agentic/multi_agent_cad.py](src/Agentic/multi_agent_cad.py) | 🚧 Prototype (not runnable as-is) | LangChain + LangGraph Planner → Retriever → Generator → Critic loop with a conditional edge that loops back to the planner until the critic approves; uses outdated LangChain/LangGraph APIs and needs a pre-built FAISS index (`cad_index`) |
 | B-Rep RAG retrieval | [src/B-rep/B_rep_Retrieval.py](src/B-rep/B_rep_Retrieval.py) | 📝 Empty stub | Intended: encode B-rep topology/geometry, store embeddings, retrieve similar CAD models |
@@ -158,6 +159,13 @@ python src/B-rep/example_B_rep.py
 # 5. CLIP-based text/mesh retrieval (needs: torch, clip, pillow)
 python src/CLIP/text2cad_clip.py
 
+# 6. LLM -> CadQuery code -> STEP file, retrying on execution errors (needs: cadquery, transformers, torch)
+cd src/CAD_Harness/cadquery && python3 -c "
+from harness import run_harness
+from qwen_llm import qwen_llm
+print(run_harness('a cube of size 5', qwen_llm, output_path='cube.step'))
+"
+
 # DVC-tracked pipeline stage
 dvc repro generate
 ```
@@ -165,6 +173,16 @@ dvc repro generate
 Docker: the [Dockerfile](Dockerfile) sets up a `python:3.10` base image with `/app` as the working directory (dependency install and entrypoint are not yet defined — add them if containerizing).
 
 For the B-Rep + LLM sub-pipeline specifically, see [src/B-rep/README.md](src/B-rep/README.md) for its own architecture notes.
+
+---
+
+## CAD Generation Harness
+
+[src/CAD_Harness/](src/CAD_Harness/) is a minimal generate → execute → retry loop for LLM-to-CAD: an LLM (Qwen3-8B, or any `str -> str` callable) writes CadQuery or build123d Python code, the code runs in a subprocess and exports a STEP file, and on failure the traceback is fed back into the prompt for a fix (CADCodeVerify-style, up to `max_retries`). Two kernel variants, [cadquery/](src/CAD_Harness/cadquery/) and [build123d/](src/CAD_Harness/build123d/), kept in separate venvs since they pull in conflicting OCP builds. See [src/CAD_Harness/README.md](src/CAD_Harness/README.md) for the diagram and full commands.
+
+Example — "a 40x20x5mm mounting plate with two 4mm holes and 2mm filleted corners", generated and verified through the harness:
+
+![Mounting plate example](src/CAD_Harness/cadquery/plate_preview.png)
 
 ---
 
