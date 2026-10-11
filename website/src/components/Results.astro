@@ -1,0 +1,88 @@
+---
+import { runs } from "../data/site";
+
+const passes = runs.filter((r) => r.outcome === "pass").length;
+
+const checks = [
+  ["Python exceptions", "CAD code that raises, or never produces result, returns its traceback."],
+  ["GLSL compile errors", "The compiler log is returned with the offending source lines quoted."],
+  ["Missing entry point", "Code that never defines float sdf(vec3 p) is rejected before compiling."],
+  ["Empty or inside-out", "Nothing visible from any view, or a surface that fills the whole frame."],
+  ["Off-frame shapes", "Shapes that are not centered or exceed the [-1, 1]³ box get cut off."],
+  ["Hangs", "Every run has a subprocess timeout; SDF code is capped at 64 KB."],
+];
+
+const limits = [
+  "The checks catch broken code, not wrong shapes: a valid program can still miss the prompt (see the dragon's floating legs).",
+  "Small local models (Qwen3-8B, Qwen2.5-Coder-7B) often repeat the same mistake through every repair round on SDF tasks.",
+  "SDF output is visual geometry, not dimensioned CAD: no STEP export or exact tolerances.",
+  "No quantitative benchmark yet; a vision critic that compares renders with the prompt is the natural next step.",
+];
+---
+
+<section id="results" class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+  <p class="eyebrow mb-3">Results</p>
+  <h2 class="section-title">What has been run so far</h2>
+  <p class="mt-3 max-w-3xl text-muted">
+    These are individual, qualitative runs recorded in the repository: {passes} of {runs.length} produced a valid artifact.
+    This is not a benchmark, and the failures are listed on purpose.
+  </p>
+
+  <div class="card mt-8 overflow-x-auto">
+    <table class="w-full min-w-[44rem] text-left text-sm">
+      <thead class="text-xs text-muted">
+        <tr class="border-b border-line">
+          <th class="px-5 py-3 font-medium">Harness</th>
+          <th class="px-3 py-3 font-medium">Model</th>
+          <th class="px-3 py-3 font-medium">Task</th>
+          <th class="px-3 py-3 font-medium">Outcome</th>
+          <th class="px-5 py-3 font-medium">Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {runs.map((r) => (
+          <tr class="border-b border-line last:border-0">
+            <td class="px-5 py-3">
+              <span class:list={["tag mr-2", r.kind === "sdf" ? "bg-accent-soft text-accent" : "bg-brep-soft text-brep"]}>{r.kind === "sdf" ? "SDF" : "B-rep"}</span>
+              {r.harness}
+            </td>
+            <td class="px-3 py-3 font-medium whitespace-nowrap">{r.model}</td>
+            <td class="px-3 py-3 text-muted">{r.task}</td>
+            <td class="px-3 py-3">
+              <span class:list={["tag", r.outcome === "pass" ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"]}>
+                {r.outcome === "pass" ? "✓ valid" : "✗ failed"}
+              </span>
+            </td>
+            <td class="px-5 py-3 text-muted">{r.detail}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-5 grid gap-5 lg:grid-cols-2">
+    <article class="card p-6">
+      <h3 class="text-lg font-semibold">What the validators catch</h3>
+      <dl class="mt-4 grid gap-3 sm:grid-cols-2">
+        {checks.map(([k, v]) => (
+          <div class="rounded-xl bg-surface-2 p-3">
+            <dt class="text-sm font-medium">{k}</dt>
+            <dd class="mt-1 text-xs leading-relaxed text-muted">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </article>
+    <article class="card p-6">
+      <h3 class="text-lg font-semibold">Limitations</h3>
+      <ul class="mt-4 space-y-3 text-sm leading-relaxed text-muted">
+        {limits.map((l) => (
+          <li class="flex gap-2.5"><span class="mt-[0.55rem] size-1.5 shrink-0 rounded-full bg-warn"></span><span>{l}</span></li>
+        ))}
+      </ul>
+      <p class="mt-5 rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
+        Test suites run without any model: 24 tests for the SDF harness (prompts, compile errors, render checks, timeouts,
+        repair and refine loops, the OpenAI backend against a stub server), plus fake-LLM tests for both CAD-code harnesses.
+      </p>
+    </article>
+  </div>
+</section>

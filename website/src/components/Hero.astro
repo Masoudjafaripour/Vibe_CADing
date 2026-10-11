@@ -1,0 +1,58 @@
+---
+import { asset, author, repoUrl } from "../data/site";
+---
+
+<section id="top" class="relative overflow-hidden">
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60rem_30rem_at_70%_-10%,var(--accent-soft),transparent_70%)]"></div>
+  <div class="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-14 pb-16 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-24">
+    <div>
+      <p class="eyebrow mb-4">Text → 3D geometry · open-source research project</p>
+      <h1 class="text-4xl leading-[1.05] font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+        Let the LLM write<br class="hidden sm:block" /> the shape as <span class="text-accent">code</span>.
+      </h1>
+      <p class="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+        <strong class="font-semibold text-ink">Vibe-CADing</strong> turns natural-language prompts into 3D geometry.
+        An LLM writes a program for the shape (CAD code for B-rep solids, or GLSL for implicit surfaces), the program runs,
+        and errors go back to the model until the result is valid.
+      </p>
+      <p class="mt-4 text-sm text-muted">
+        <a href={author.url} class="font-medium text-ink underline decoration-line underline-offset-4 hover:decoration-ink">{author.name}</a>
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href={repoUrl} class="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-bg transition-opacity hover:opacity-85">
+          GitHub repository
+        </a>
+        <a href={asset("media/vibe_cading_report.pdf")} class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2">
+          Project report (PDF)
+        </a>
+        <a href="#interactive" class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2">
+          Try the live 3D viewer →
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <figure class="card col-span-2 overflow-hidden">
+        <img src={asset("media/dragon_gpt4o.gif")} alt="Turntable of a dragon written by GPT-4o as a GLSL signed distance function" class="aspect-[4/3] w-full object-cover" width="640" height="480" />
+        <figcaption class="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-xs">
+          <span class="text-muted">“A stylized dragon…”, written by GPT-4o as 1.8 KB of GLSL</span>
+          <span class="tag bg-accent-soft text-accent">SDF</span>
+        </figcaption>
+      </figure>
+      <figure class="card overflow-hidden">
+        <img src={asset("media/plate_preview.png")} alt="Mounting plate generated with CadQuery by Qwen3-8B" class="aspect-square w-full object-cover" width="320" height="320" loading="lazy" />
+        <figcaption class="flex items-center justify-between gap-2 border-t border-line px-3 py-2 text-xs">
+          <span class="text-muted">Plate · Qwen3-8B</span>
+          <span class="tag bg-brep-soft text-brep">B-rep</span>
+        </figcaption>
+      </figure>
+      <figure class="card overflow-hidden">
+        <img src={asset("media/duck.gif")} alt="Rubber duck signed distance function turntable" class="aspect-square w-full object-cover" width="320" height="320" loading="lazy" />
+        <figcaption class="flex items-center justify-between gap-2 border-t border-line px-3 py-2 text-xs">
+          <span class="text-muted">Duck · smooth unions</span>
+          <span class="tag bg-accent-soft text-accent">SDF</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>

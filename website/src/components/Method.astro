@@ -1,0 +1,169 @@
+---
+import { treeUrl } from "../data/site";
+
+const steps = [
+  { n: "1", title: "Prompt", body: "Natural-language description, or an edit instruction for an existing shape." },
+  { n: "2", title: "LLM", body: "Any text-in/text-out model: local Qwen via transformers, or an OpenAI-compatible API." },
+  { n: "3", title: "Program", body: "CadQuery / build123d Python, or a GLSL function float sdf(vec3 p)." },
+  { n: "4", title: "Sandboxed run", body: "Executed in a subprocess with a timeout: OpenCascade kernel or headless GPU." },
+  { n: "5", title: "Validate", body: "Tracebacks, compile logs with the offending lines, render checks." },
+  { n: "6", title: "Artifact", body: "STEP solid for CAD code; PNG + turntable GIF for SDFs." },
+];
+
+const harnesses = [
+  {
+    tag: "B-rep",
+    kind: "brep",
+    title: "CAD-code harness",
+    path: "src/CAD_Harness",
+    points: [
+      "The LLM writes CadQuery or build123d code that assigns the part to result.",
+      "Runs in a subprocess and exports a STEP file through the OpenCascade kernel.",
+      "On failure the traceback goes back into the prompt (CADCodeVerify-style), up to max_retries.",
+      "Two kernel variants in separate environments, since they pull in conflicting OCP builds.",
+    ],
+  },
+  {
+    tag: "SDF",
+    kind: "sdf",
+    title: "SDF harness (GLSL)",
+    path: "src/CAD_Harness/sdf",
+    points: [
+      "The LLM writes float sdf(vec3 p), and optionally sdf_color, using a shared primitive library: sdSphere, sdCapsule, opSmoothUnion, rotX/Y/Z…",
+      "An OpenGL 3.3 sphere tracer (moderngl + EGL, no display) renders it with soft shadows and AO.",
+      "Rejects compile errors, a missing sdf(), empty or inside-out renders and off-frame shapes, then asks for a repair (0–3 rounds).",
+      "Refine an existing shape with a text instruction; outputs .glsl, .png, .gif and run metadata.",
+    ],
+  },
+  {
+    tag: "B-rep",
+    kind: "brep",
+    title: "LLM → JSON → pythonOCC",
+    path: "src/B-rep",
+    points: [
+      "Qwen2.5-3B-Instruct turns a prompt into a structured spec such as {\"type\": \"cube\", \"size\": 5}.",
+      "pythonOCC builds sketch → wire → face → extruded solid, exportable to STEP / IGES.",
+      "Simple and robust for primitives, but limited to what the JSON schema can express.",
+    ],
+  },
+];
+
+const supporting = [
+  ["Text → image → SVG", "Stable Diffusion + ControlNet (Canny), then OpenCV contour tracing", "src/pipeline"],
+  ["PixelCNN 2D CAD grids", "Masked convolutions model p(grid) cell by cell over CAD tokens", "src/AR"],
+  ["CLIP retrieval", "ViT-B/32 ranks rendered meshes against a text query", "src/CLIP"],
+];
+
+const reps = [
+  ["Stores", "a function (code)", "triangles", "exact faces, edges, NURBS"],
+  ["Size", "tiny (KB of code)", "large", "medium"],
+  ["Smooth blends", "trivial", "hard", "hard (fillets)"],
+  ["Exact dimensions / STEP", "no", "approximate", "yes"],
+  ["Best for", "organic, sculpted forms", "rendering, games, printing", "engineering CAD"],
+];
+---
+
+<section id="method" class="border-t border-line bg-surface">
+  <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+    <p class="eyebrow mb-3">Method</p>
+    <h2 class="section-title max-w-3xl">Geometry as code: generate, run, check, repair</h2>
+    <p class="mt-4 max-w-3xl leading-relaxed text-muted">
+      Every harness shares one loop. The model never outputs geometry directly; it outputs a program, and the program is
+      treated as untrusted code: run in isolation, checked, and sent back with the error if anything fails.
+    </p>
+
+    <!-- Architecture diagram -->
+    <div class="mt-10 rounded-2xl border border-line bg-bg p-4 sm:p-6">
+      <ol class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        {steps.map((s, i) => (
+          <li class="relative">
+            <div class="h-full rounded-xl border border-line bg-surface p-4">
+              <div class="flex items-center gap-2">
+                <span class="grid size-6 place-items-center rounded-full bg-ink font-mono text-[11px] text-bg">{s.n}</span>
+                <span class="font-semibold">{s.title}</span>
+              </div>
+              <p class="mt-2 text-sm leading-snug text-muted">{s.body}</p>
+            </div>
+            {i < steps.length - 1 && (
+              <span aria-hidden="true" class="absolute top-1/2 -right-2.5 z-10 hidden -translate-y-1/2 text-muted lg:block">›</span>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <div class="flex items-start gap-3 rounded-xl border border-dashed border-bad/50 bg-bad-soft/60 p-4">
+          <span class="font-mono text-lg leading-none text-bad">↺</span>
+          <p class="text-sm leading-snug">
+            <span class="font-semibold">Repair loop (5 → 2).</span>{" "}
+            <span class="text-muted">On failure, the model gets back its own code plus the error, and tries again.</span>
+          </p>
+        </div>
+        <div class="flex items-start gap-3 rounded-xl border border-dashed border-ok/50 bg-ok-soft/60 p-4">
+          <span class="font-mono text-lg leading-none text-ok">✎</span>
+          <p class="text-sm leading-snug">
+            <span class="font-semibold">Refine loop (6 → 1).</span>{" "}
+            <span class="text-muted">A new instruction (“make the wings larger”) edits the last valid program.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Harnesses -->
+    <div class="mt-12 grid gap-4 lg:grid-cols-3">
+      {harnesses.map((h) => (
+        <article class="card flex flex-col p-6">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-lg font-semibold">{h.title}</h3>
+            <span class:list={["tag", h.kind === "sdf" ? "bg-accent-soft text-accent" : "bg-brep-soft text-brep"]}>{h.tag}</span>
+          </div>
+          <ul class="mt-4 flex-1 space-y-2.5 text-sm leading-relaxed text-muted">
+            {h.points.map((p) => (
+              <li class="flex gap-2"><span class="mt-2 size-1 shrink-0 rounded-full bg-muted"></span><span>{p}</span></li>
+            ))}
+          </ul>
+          <a href={treeUrl(h.path)} class="mt-5 font-mono text-xs text-muted underline decoration-line underline-offset-4 hover:text-ink">{h.path} →</a>
+        </article>
+      ))}
+    </div>
+
+    <!-- Supporting + representations -->
+    <div class="mt-4 grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+      <article class="card p-6">
+        <h3 class="text-lg font-semibold">Supporting models</h3>
+        <ul class="mt-4 divide-y divide-line">
+          {supporting.map(([name, what, path]) => (
+            <li class="py-3 first:pt-0 last:pb-0">
+              <a href={treeUrl(path)} class="font-medium hover:underline">{name}</a>
+              <p class="text-sm text-muted">{what}</p>
+            </li>
+          ))}
+        </ul>
+      </article>
+      <article class="card overflow-hidden">
+        <h3 class="px-6 pt-6 text-lg font-semibold">Why several representations?</h3>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full min-w-[30rem] text-left text-sm">
+            <thead class="text-xs text-muted">
+              <tr class="border-b border-line">
+                <th class="px-6 py-2 font-medium"></th>
+                <th class="px-3 py-2 font-medium text-accent">SDF (GLSL)</th>
+                <th class="px-3 py-2 font-medium">Mesh</th>
+                <th class="px-6 py-2 font-medium text-brep">B-rep (CAD code)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reps.map(([k, a, b, c]) => (
+                <tr class="border-b border-line last:border-0">
+                  <th class="px-6 py-2.5 font-medium">{k}</th>
+                  <td class="px-3 py-2.5 text-muted">{a}</td>
+                  <td class="px-3 py-2.5 text-muted">{b}</td>
+                  <td class="px-6 py-2.5 text-muted">{c}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

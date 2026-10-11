@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/jetbrains-mono/400.css";
+
+/* Theme tokens: light by default, dark via the OS setting. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --ink: #15171c;
+  --muted: #5a5f6b;
+  --line: #e2dfd7;
+  --accent: #d9692a;       /* SDF / GLSL (matches the renders) */
+  --accent-soft: #fbe7da;
+  --brep: #2f62c9;         /* B-rep / CAD code */
+  --brep-soft: #dfe8fb;
+  --ok: #1f8a4c;
+  --ok-soft: #dcf2e4;
+  --warn: #a56a00;
+  --warn-soft: #fbefd5;
+  --bad: #b3372f;
+  --bad-soft: #f8e0dd;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1014;
+    --surface: #161920;
+    --surface-2: #1d2129;
+    --ink: #e9eaee;
+    --muted: #9ba1ae;
+    --line: #272b35;
+    --accent: #f08a4b;
+    --accent-soft: #3a2418;
+    --brep: #7ea3f2;
+    --brep-soft: #1c2740;
+    --ok: #5cc78a;
+    --ok-soft: #15301f;
+    --warn: #e2b04f;
+    --warn-soft: #33270f;
+    --bad: #ef7d74;
+    --bad-soft: #3a1b19;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-brep: var(--brep);
+  --color-brep-soft: var(--brep-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 4.5rem;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+.section-title {
+  @apply text-2xl font-semibold tracking-tight sm:text-3xl;
+}
+
+.eyebrow {
+  @apply font-mono text-xs uppercase tracking-[0.14em] text-muted;
+}
+
+.card {
+  @apply rounded-2xl border border-line bg-surface;
+}
+
+.tag {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium;
+}

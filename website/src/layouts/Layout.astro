@@ -1,0 +1,30 @@
+---
+import "../styles/global.css";
+import { asset } from "../data/site";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+const ogImage = new URL(asset("media/dragon_gpt4o.gif"), Astro.site).href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href={asset("favicon.svg")} type="image/svg+xml" />
+  </head>
+  <body class="min-h-screen">
+    <slot />
+  </body>
+</html>

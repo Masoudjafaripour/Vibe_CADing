@@ -1,0 +1,157 @@
+---
+import { asset, blobUrl } from "../data/site";
+import { SHAPES } from "../scripts/sdf-viewer";
+
+const shapes = Object.entries(SHAPES).map(([key, s]) => ({
+  key,
+  label: s.label,
+  path: s.path,
+  bytes: new TextEncoder().encode(s.code).length,
+  lines: s.code.trimEnd().split("\n").length,
+  code: s.code,
+}));
+---
+
+<section id="interactive" class="border-y border-line bg-surface">
+  <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+    <p class="eyebrow mb-3">Interactive 3D</p>
+    <h2 class="section-title">Drag to orbit. Both are real repository files.</h2>
+    <p class="mt-3 max-w-3xl text-muted">
+      Left: the GLSL shapes compiled live in your browser with a WebGL2 port of the harness's sphere tracer.
+      Right: the CadQuery mounting plate, tessellated from its STEP file, with the solid's B-rep edges drawn on top.
+    </p>
+
+    <div class="mt-10 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
+      <!-- SDF viewer -->
+      <article class="card flex min-w-0 flex-col overflow-hidden bg-bg">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span class="tag bg-accent-soft text-accent">SDF</span>
+            <span class="text-sm font-semibold">Live GLSL sphere tracing</span>
+          </div>
+          <div class="flex flex-wrap gap-1" role="group" aria-label="Choose shape" id="sdf-shapes">
+            {shapes.map((s, i) => (
+              <button
+                type="button"
+                data-shape={s.key}
+                aria-pressed={i === 0 ? "true" : "false"}
+                class="rounded-lg px-2.5 py-1 text-xs text-muted transition-colors hover:text-ink aria-pressed:bg-ink aria-pressed:text-bg"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div class="relative">
+          <canvas id="sdf-canvas" class="block aspect-[4/3] w-full cursor-grab touch-none data-[dragging]:cursor-grabbing" aria-label="Interactive 3D view of the selected GLSL shape"></canvas>
+          <img id="sdf-fallback" hidden src={asset("media/dragon_gpt4o.gif")} alt="Dragon turntable (WebGL2 unavailable, showing the pre-rendered GIF)" class="aspect-[4/3] w-full object-cover" />
+          <p id="sdf-error" hidden class="absolute inset-x-3 bottom-3 rounded-lg bg-bad-soft p-3 font-mono text-xs text-bad"></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-3 text-xs text-muted">
+          <label class="inline-flex cursor-pointer items-center gap-1.5"><input id="sdf-rotate" type="checkbox" class="accent-[var(--accent)]" checked /> Auto-rotate</label>
+          <label class="inline-flex cursor-pointer items-center gap-1.5"><input id="sdf-shadows" type="checkbox" class="accent-[var(--accent)]" checked /> Soft shadows</label>
+          <button id="sdf-reset" type="button" class="underline decoration-line underline-offset-4 hover:text-ink">Reset view</button>
+          <span id="sdf-meta" class="ml-auto font-mono"></span>
+        </div>
+        <details class="group border-t border-line">
+          <summary class="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none hover:bg-surface-2">
+            <span class="mr-1.5 inline-block transition-transform group-open:rotate-90">›</span>
+            View the shape's GLSL: this is the whole model
+          </summary>
+          {shapes.map((s, i) => (
+            <div data-code={s.key} hidden={i !== 0}>
+              <pre class="max-h-80 overflow-auto border-t border-line bg-surface-2 p-4 font-mono text-[11.5px] leading-relaxed"><code>{s.code}</code></pre>
+              <a href={blobUrl(s.path)} class="block border-t border-line px-4 py-2 font-mono text-[11px] text-muted hover:text-ink">{s.path} · {s.bytes.toLocaleString("en-US")} bytes · {s.lines} lines</a>
+            </div>
+          ))}
+        </details>
+      </article>
+
+      <!-- B-rep viewer -->
+      <article class="card flex min-w-0 flex-col overflow-hidden bg-bg">
+        <div class="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span class="tag bg-brep-soft text-brep">B-rep</span>
+            <span class="text-sm font-semibold">Mounting plate from STEP</span>
+          </div>
+          <button id="brep-reset" type="button" class="text-xs text-muted underline decoration-line underline-offset-4 hover:text-ink">Reset view</button>
+        </div>
+        <canvas id="brep-canvas" data-src={asset("models/plate.json")} class="block aspect-[4/3] w-full flex-1 cursor-grab touch-none" aria-label="Interactive 3D view of the CadQuery mounting plate"></canvas>
+        <div class="border-t border-line px-4 py-3 text-xs text-muted">
+          <p id="brep-stats" class="font-mono">Loading…</p>
+          <p class="mt-2 leading-relaxed">
+            Prompt to Qwen3-8B: <span class="font-mono text-ink">“a 40x20x5mm mounting plate with two 4mm holes 15mm either side of center and 2mm filleted corners”</span>.
+            Scroll or pinch to zoom.
+          </p>
+          <a href={blobUrl("src/CAD_Harness/cadquery/plate.step")} class="mt-2 inline-block font-mono text-[11px] underline decoration-line underline-offset-4 hover:text-ink">src/CAD_Harness/cadquery/plate.step</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { SHAPES, SdfViewer } from "../scripts/sdf-viewer";
+
+  const canvas = document.getElementById("sdf-canvas") as HTMLCanvasElement;
+  const errorBox = document.getElementById("sdf-error")!;
+  const meta = document.getElementById("sdf-meta")!;
+  let viewer: SdfViewer | null = null;
+
+  try {
+    viewer = new SdfViewer(canvas);
+    viewer.onError = (msg) => {
+      errorBox.textContent = msg;
+      errorBox.hidden = false;
+    };
+  } catch {
+    canvas.hidden = true;
+    document.getElementById("sdf-fallback")!.hidden = false;
+  }
+
+  const select = (key: string) => {
+    errorBox.hidden = true;
+    viewer?.load(SHAPES[key].code);
+    const bytes = new TextEncoder().encode(SHAPES[key].code).length;
+    meta.textContent = `${(bytes / 1024).toFixed(1)} KB of GLSL`;
+    document.querySelectorAll<HTMLButtonElement>("#sdf-shapes [data-shape]").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.shape === key)),
+    );
+    document.querySelectorAll<HTMLElement>("[data-code]").forEach((el) => (el.hidden = el.dataset.code !== key));
+  };
+  document.querySelectorAll<HTMLButtonElement>("#sdf-shapes [data-shape]").forEach((b) =>
+    b.addEventListener("click", () => select(b.dataset.shape!)),
+  );
+  select(Object.keys(SHAPES)[0]);
+
+  const rotate = document.getElementById("sdf-rotate") as HTMLInputElement;
+  if (viewer) rotate.checked = viewer.autoRotate;
+  rotate.addEventListener("change", () => viewer && (viewer.autoRotate = rotate.checked));
+  const shadows = document.getElementById("sdf-shadows") as HTMLInputElement;
+  shadows.addEventListener("change", () => {
+    if (!viewer) return;
+    viewer.shadows = shadows.checked;
+    viewer.markDirty();
+  });
+  document.getElementById("sdf-reset")!.addEventListener("click", () => viewer?.resetView());
+
+  // three.js is only fetched when the B-rep viewer scrolls near the viewport
+  const brepCanvas = document.getElementById("brep-canvas") as HTMLCanvasElement;
+  const stats = document.getElementById("brep-stats")!;
+  const io = new IntersectionObserver(
+    async ([entry]) => {
+      if (!entry.isIntersecting) return;
+      io.disconnect();
+      try {
+        const { mountBrepViewer } = await import("../scripts/brep-viewer");
+        const brep = await mountBrepViewer(brepCanvas, brepCanvas.dataset.src!);
+        stats.textContent = brep.stats;
+        document.getElementById("brep-reset")!.addEventListener("click", brep.reset);
+      } catch (err) {
+        stats.textContent = `Could not load the 3D model: ${err}`;
+      }
+    },
+    { rootMargin: "300px" },
+  );
+  io.observe(brepCanvas);
+</script>

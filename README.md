@@ -3,10 +3,13 @@
 **Vibe-CADing** turns text prompts into 3D geometry. Core idea: **geometry as code**. An LLM writes the shape as a program, the program runs, and errors go back to the LLM for repair.
 
 * **LLM → code**: CadQuery / build123d (B-rep, STEP) and GLSL SDFs (rendered surfaces)
-* **Generative models**: voxel diffusion / VAE, PixelCNN 2D CAD layouts
-* **RAG** over open-source CAD libraries
-* **Feedback**: execution checks, render checks, manufacturability scoring
-* **Multi-agent loop**: Planner / Retriever / Generator / Critic
+* **Voxel-based 3D generators**: Diffusion, VAE, VQ-VAE, AR models
+* **Autoregressive PixelCNN-style 2D CAD layout generator**
+* **Retrieval-Augmented Generation (RAG)** over open-source CAD libraries
+* **Geometric feedback and manufacturability scoring**
+* **LLM-powered multi-agent orchestration**: Planner / Retriever / Generator / Critic
+
+These modules form an iterative, feedback-driven workflow for creating, refining, and reusing 3D CAD parts.
 
 **What runs today:** the LLM writes geometry as code, the code is executed, and errors are fed back for repair:
 

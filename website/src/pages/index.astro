@@ -1,0 +1,27 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Hero from "../components/Hero.astro";
+import Method from "../components/Method.astro";
+import Gallery from "../components/Gallery.astro";
+import Interactive from "../components/Interactive.astro";
+import Results from "../components/Results.astro";
+import Status from "../components/Status.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Layout
+  title="Vibe-CADing: text to 3D geometry, with LLMs writing the shape as code"
+  description="LLMs write CAD code (CadQuery, build123d) or GLSL signed distance functions; the code runs, is validated, and errors are fed back for repair. Live WebGL demos and results."
+>
+  <Nav />
+  <main>
+    <Hero />
+    <Method />
+    <Gallery />
+    <Interactive />
+    <Results />
+    <Status />
+  </main>
+  <Footer />
+</Layout>

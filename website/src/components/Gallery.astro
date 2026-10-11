@@ -1,0 +1,83 @@
+---
+import { asset, blobUrl, gallery } from "../data/site";
+
+const filters = [
+  ["all", "All"],
+  ["sdf", "SDF / GLSL"],
+  ["brep", "B-rep / CAD"],
+];
+---
+
+<section id="gallery" class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="eyebrow mb-3">Gallery</p>
+      <h2 class="section-title">Outputs from the repository</h2>
+      <p class="mt-3 max-w-2xl text-muted">
+        Every image is a file checked into the repo. Captions say who wrote the geometry code: an LLM, or a hand-written reference.
+      </p>
+    </div>
+    <div class="flex gap-1 rounded-xl border border-line bg-surface p-1" role="group" aria-label="Filter gallery">
+      {filters.map(([key, label], i) => (
+        <button
+          type="button"
+          data-filter={key}
+          aria-pressed={i === 0 ? "true" : "false"}
+          class="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink aria-pressed:bg-ink aria-pressed:text-bg"
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    {gallery.map((item) => (
+      <figure data-kind={item.kind} class="card group flex flex-col overflow-hidden">
+        <div class="overflow-hidden bg-surface-2">
+          <img
+            src={asset(item.image)}
+            alt={`${item.title}: ${item.method}`}
+            loading="lazy"
+            width="480"
+            height="360"
+            class:list={[
+              "aspect-[4/3] w-full transition-transform duration-500 group-hover:scale-[1.03]",
+              item.image.endsWith(".svg") ? "object-contain bg-white p-6" : "object-cover",
+            ]}
+          />
+        </div>
+        <figcaption class="flex flex-1 flex-col p-5">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="font-semibold">{item.title}</h3>
+            <span class:list={["tag", item.kind === "sdf" ? "bg-accent-soft text-accent" : "bg-brep-soft text-brep"]}>
+              {item.kind === "sdf" ? "SDF" : "B-rep"}
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-muted">{item.method} · <span class="font-medium text-ink">{item.author}</span></p>
+          {item.prompt && (
+            <p class="mt-3 rounded-lg bg-surface-2 px-3 py-2 font-mono text-[11.5px] leading-relaxed">“{item.prompt}”</p>
+          )}
+          <p class="mt-3 flex-1 text-sm leading-relaxed text-muted">{item.note}</p>
+          <a href={blobUrl(item.source)} class="mt-4 truncate font-mono text-[11px] text-muted underline decoration-line underline-offset-4 hover:text-ink">
+            {item.source}
+          </a>
+        </figcaption>
+      </figure>
+    ))}
+  </div>
+</section>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>("#gallery [data-filter]");
+  const cards = document.querySelectorAll<HTMLElement>("#gallery [data-kind]");
+  buttons.forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.filter;
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      cards.forEach((card) => {
+        card.hidden = key !== "all" && card.dataset.kind !== key;
+      });
+    }),
+  );
+</script>

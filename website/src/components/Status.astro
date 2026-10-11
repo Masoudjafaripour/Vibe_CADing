@@ -1,0 +1,31 @@
+---
+import { modules, treeUrl, type Status } from "../data/site";
+
+const style: Record<Status, [string, string]> = {
+  working: ["Working demo", "bg-ok-soft text-ok"],
+  prototype: ["Prototype", "bg-warn-soft text-warn"],
+  stub: ["Planned", "bg-surface-2 text-muted"],
+};
+---
+
+<section id="status" class="border-t border-line bg-surface">
+  <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+    <p class="eyebrow mb-3">Implementation status</p>
+    <h2 class="section-title">The bigger pipeline, and how much of it exists</h2>
+    <p class="mt-3 max-w-3xl text-muted">
+      The long-term goal is an agentic loop (Planner → Retriever → Generator → Critic) combining code generation, learned
+      3D generators, retrieval over CAD libraries and manufacturability feedback. This table mirrors the repository README.
+    </p>
+    <ul class="mt-8 grid gap-3 md:grid-cols-2">
+      {modules.map((m) => (
+        <li class="flex items-start gap-4 rounded-xl border border-line bg-bg p-4">
+          <span class:list={["tag shrink-0", style[m.status][1]]}>{style[m.status][0]}</span>
+          <div class="min-w-0">
+            <a href={treeUrl(m.path)} class="font-medium hover:underline">{m.name}</a>
+            <p class="mt-0.5 text-sm text-muted">{m.what}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
