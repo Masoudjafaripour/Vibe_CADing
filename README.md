@@ -193,7 +193,7 @@ Example — "a 40x20x5mm mounting plate with two 4mm holes and 2mm filleted corn
 
 [src/CAD_Harness/sdf/](src/CAD_Harness/sdf/) uses the same loop, but the LLM writes the shape as a GLSL **signed distance function** instead of B-rep code. A headless GPU sphere tracer renders it to PNG and a turntable GIF, and you can refine the result with text ("make the wings larger"). This suits organic, blended forms, but it is visual geometry, not dimensioned CAD (no STEP export). See its [README](src/CAD_Harness/sdf/README.md) for setup and commands.
 
-<img src="src/CAD_Harness/sdf/examples/dragon_gpt4o.gif" width="280" alt="GPT-4o dragon">
+<img src="src/CAD_Harness/sdf/assets/dragon_gpt4o.gif" width="280" alt="GPT-4o dragon">
 
 *GPT-4o: "A stylized dragon made of smooth geometric primitives", then "Make the wings larger". The result is 1.8 KB of GLSL.*
 

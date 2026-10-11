@@ -4,7 +4,7 @@ An LLM writes a 3D shape as a few hundred lines of GLSL, a **signed
 distance function**, and a GPU sphere tracer renders it to PNG and a
 turntable GIF. Inspired by Keenan Crane's LLM-written GLSL dragon.
 
-<p align="center"><img src="examples/dragon_gpt4o.gif" width="320" alt="GPT-4o dragon turntable"></p>
+<p align="center"><img src="assets/dragon_gpt4o.gif" width="320" alt="GPT-4o dragon turntable"></p>
 
 *Written entirely by GPT-4o: "A stylized dragon made of smooth geometric
 primitives", then refined with "Make the wings larger". Each step
@@ -15,8 +15,8 @@ unassisted LLM gets to.*
 
 | Snowman (`examples/snowman.glsl`) | Rubber duck (`examples/duck.glsl`) |
 |---|---|
-| ![snowman](examples/snowman.png) | ![duck](examples/duck.png) |
-| ![snowman turntable](examples/snowman.gif) | ![duck turntable](examples/duck.gif) |
+| ![snowman](assets/snowman.png) | ![duck](assets/duck.png) |
+| ![snowman turntable](assets/snowman.gif) | ![duck turntable](assets/duck.gif) |
 
 Both examples are hand-written reference shapes (about 1.5 KB each); they run without an LLM.
 
@@ -69,7 +69,8 @@ automatically and listed in the prompt.
 | `llm.py` | backends: local Qwen, any OpenAI-compatible API |
 | `render.py` | headless renderer (also its own CLI) |
 | `sdf_lib.glsl` | shared SDF primitives and operators |
-| `examples/` | snowman, duck (hand-written), dragon_gpt4o (LLM) + renders |
+| `examples/` | snowman, duck (hand-written), dragon_gpt4o (LLM) `.glsl` |
+| `assets/` | README renders (PNG, GIF) |
 | `test_harness.py` | 24 tests; no LLM or API key needed |
 
 **Rendering backend:** OpenGL 3.3 fragment shader via
