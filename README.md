@@ -128,6 +128,7 @@ The sections above describe the target design. Below is the **actual state of th
 | LLM → B-Rep (text-to-CAD) | [src/B-rep/LLM_B_rep.py](src/B-rep/LLM_B_rep.py) | ✅ Working demo | Qwen2.5-3B-Instruct converts a text prompt into a structured JSON CAD spec (e.g. `{"type":"cube","size":5}`); pythonOCC (OpenCascade) builds sketch → wire → face → extruded solid B-rep and displays it |
 | B-Rep primitive example | [src/B-rep/example_B_rep.py](src/B-rep/example_B_rep.py) | ✅ Working demo | Hand-written pythonOCC pipeline: rectangle sketch → wire → face → prism extrusion → export to `.step`/`.igs` (sample outputs in [src/B-rep/results/](src/B-rep/results/)) |
 | CAD generation harness | [src/CAD_Harness/](src/CAD_Harness/) | ✅ Working demo | LLM writes CadQuery/build123d code → executes in a subprocess → STEP export; failures feed the traceback back into the prompt and retry (CADCodeVerify-style). Verified with Qwen3-8B on a simple cube and a mounting plate with holes + fillets |
+| LLM → SDF (GLSL) | [src/CAD_Harness/sdf/](src/CAD_Harness/sdf/) | ✅ Working demo | LLM writes a GLSL signed distance function → headless GPU sphere tracer (moderngl/EGL) renders PNG + turntable GIF; compile/framing errors fed back for repair; text-based refinement. Verified with GPT-4o; small local Qwen models give poor shapes |
 | CLIP text/image retrieval | [src/CLIP/text2cad_clip.py](src/CLIP/text2cad_clip.py) | ✅ Working demo | Encodes a text query and rendered mesh images with CLIP ViT-B/32, ranks meshes by cosine similarity for retrieval-augmented CAD reuse |
 | Multi-agent orchestration | [src/Agentic/multi_agent_cad.py](src/Agentic/multi_agent_cad.py) | 🚧 Prototype (not runnable as-is) | LangChain + LangGraph Planner → Retriever → Generator → Critic loop with a conditional edge that loops back to the planner until the critic approves; uses outdated LangChain/LangGraph APIs and needs a pre-built FAISS index (`cad_index`) |
 | B-Rep RAG retrieval | [src/B-rep/B_rep_Retrieval.py](src/B-rep/B_rep_Retrieval.py) | 📝 Empty stub | Intended: encode B-rep topology/geometry, store embeddings, retrieve similar CAD models |
@@ -166,6 +167,10 @@ from qwen_llm import qwen_llm
 print(run_harness('a cube of size 5', qwen_llm, output_path='cube.step'))
 "
 
+# 7. LLM -> GLSL SDF -> PNG + GIF (needs: moderngl, numpy, pillow; GPU with OpenGL 3.3)
+cd src/CAD_Harness/sdf && python demo.py --example snowman --gif   # no LLM
+python demo.py --backend openai --model gpt-4o --prompt "a stylized dragon" --gif
+
 # DVC-tracked pipeline stage
 dvc repro generate
 ```
@@ -183,6 +188,14 @@ For the B-Rep + LLM sub-pipeline specifically, see [src/B-rep/README.md](src/B-r
 Example — "a 40x20x5mm mounting plate with two 4mm holes and 2mm filleted corners", generated and verified through the harness:
 
 ![Mounting plate example](src/CAD_Harness/cadquery/plate_preview.png)
+
+### SDF variant (GLSL implicit surfaces)
+
+[src/CAD_Harness/sdf/](src/CAD_Harness/sdf/) uses the same loop, but the LLM writes the shape as a GLSL **signed distance function** instead of B-rep code. A headless GPU sphere tracer renders it to PNG and a turntable GIF, and you can refine the result with text ("make the wings larger"). This suits organic, blended forms, but it is visual geometry, not dimensioned CAD (no STEP export). See its [README](src/CAD_Harness/sdf/README.md) for setup and commands.
+
+<img src="src/CAD_Harness/sdf/examples/dragon_gpt4o.gif" width="280" alt="GPT-4o dragon">
+
+*GPT-4o: "A stylized dragon made of smooth geometric primitives", then "Make the wings larger". The result is 1.8 KB of GLSL.*
 
 ---
 

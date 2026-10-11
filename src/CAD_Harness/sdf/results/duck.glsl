@@ -1,52 +1,38 @@
-float sphere(vec3 p, float r) {
-    return length(p) - r;
+// A rubber duck: an organic shape from ellipsoids and spheres joined with
+// smooth unions. Faces +Z, rests on y = -1.
+
+float body(vec3 p) {
+    float torso = sdEllipsoid(p - vec3(0.0, -0.6, -0.05), vec3(0.48, 0.36, 0.62));
+    float tail = sdEllipsoid(rotX(p - vec3(0.0, -0.4, -0.58), 0.6), vec3(0.16, 0.08, 0.16));
+    float neck = sdSphere(p - vec3(0.0, -0.25, 0.25), 0.2);
+    float head = sdSphere(p - vec3(0.0, 0.05, 0.3), 0.3);
+    vec3 q = vec3(abs(p.x), p.y, p.z);  // mirror: one wing models both
+    float wing = sdEllipsoid(rotZ(q - vec3(0.42, -0.52, -0.1), -0.25), vec3(0.08, 0.18, 0.32));
+
+    float d = opSmoothUnion(torso, tail, 0.12);
+    d = opSmoothUnion(d, wing, 0.06);
+    d = opSmoothUnion(d, neck, 0.15);
+    return opSmoothUnion(d, head, 0.12);
 }
 
-float box(vec3 p, vec3 b) {
-    vec3 q = abs(p);
-    return max(q.x - b.x, max(q.y - b.y, q.z - b.z));
+float beak(vec3 p) {
+    float upper = sdEllipsoid(p - vec3(0.0, 0.02, 0.6), vec3(0.14, 0.05, 0.13));
+    float lower = sdEllipsoid(p - vec3(0.0, -0.03, 0.57), vec3(0.11, 0.035, 0.1));
+    return opSmoothUnion(upper, lower, 0.02);
 }
 
-float cylinder(vec3 p, float r, float h) {
-    vec3 q = abs(p);
-    float d = max(q.x - r, q.z - r);
-    return max(d - h * 0.5, q.y - h * 0.5);
-}
-
-float torus(vec3 p, float R, float r) {
-    vec2 q = vec2(length(p.xz) - R, p.y);
-    return length(q) - r;
+float eyes(vec3 p) {
+    vec3 q = vec3(abs(p.x), p.y, p.z);
+    return sdSphere(q - vec3(0.12, 0.13, 0.55), 0.045);
 }
 
 float sdf(vec3 p) {
-    // Base shape: a sphere for the body
-    float body = sphere(p, 0.5);
-    
-    // Head: a smaller sphere on top
-    float head = sphere(p - vec3(0, 0.3, 0), 0.2);
-    
-    // Beak: a cylinder pointing down
-    float beak = cylinder(p - vec3(0, 0.3, 0), 0.05, 0.2);
-    
-    // Eyes: two spheres
-    float eye1 = sphere(p - vec3(0.15, 0.4, 0), 0.05);
-    float eye2 = sphere(p - vec3(-0.15, 0.4, 0), 0.05);
-    
-    // Nose: a small sphere
-    float nose = sphere(p - vec3(0, 0.35, 0), 0.05);
-    
-    // Combine body and head with union
-    float body_head = min(body, head);
-    
-    // Combine body_head with beak using subtraction
-    float duck = max(body_head, -beak);
-    
-    // Combine with eyes using union
-    duck = min(duck, eye1);
-    duck = min(duck, eye2);
-    
-    // Combine with nose using union
-    duck = min(duck, nose);
-    
-    return duck;
+    return min(min(body(p), beak(p)), eyes(p));
+}
+
+vec3 sdf_color(vec3 p) {
+    float d = sdf(p) + 1e-3;
+    if (eyes(p) <= d) return vec3(0.03);
+    if (beak(p) <= d) return vec3(1.0, 0.45, 0.05);
+    return vec3(1.0, 0.82, 0.1);
 }

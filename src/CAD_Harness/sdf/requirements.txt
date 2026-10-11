@@ -1,0 +1,9 @@
+# Rendering (required)
+moderngl>=5.8
+numpy
+pillow
+
+# Local Qwen backend (optional; not needed for --example, --render or --backend openai)
+torch
+transformers
+accelerate
