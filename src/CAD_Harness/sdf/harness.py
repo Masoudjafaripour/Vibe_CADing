@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER_SCRIPT = os.path.join(HERE, "render.py")
@@ -61,6 +61,8 @@ class HarnessResult:
     output_path: str = ""
     image_path: str = ""
     gif_path: str = ""
+    # one {"attempt", "prompt", "response", "error"} dict per LLM call
+    history: list = field(default_factory=list)
 
 
 class RenderEnvironmentError(RuntimeError):
@@ -159,15 +161,18 @@ def _generate(make_prompt, llm_fn, output_path: str, repairs: int, gif: bool, re
     gif_path = stem + ".gif" if gif else None
     error = None
     code = ""
+    history = []
     for attempt in range(1, repairs + 2):
-        raw = llm_fn(make_prompt(error, code))
+        prompt = make_prompt(error, code)
+        raw = llm_fn(prompt)
         code = strip_version(extract_code(raw))
         ok, error = render_shader(code, image_path, gif_path=gif_path, **render_kwargs)
+        history.append({"attempt": attempt, "prompt": prompt, "response": raw, "error": error})
         if ok:
             with open(output_path, "w") as f:
                 f.write(code + "\n")
-            return HarnessResult(True, code, attempt, "", output_path, image_path, gif_path or "")
-    return HarnessResult(False, code, repairs + 1, error)
+            return HarnessResult(True, code, attempt, "", output_path, image_path, gif_path or "", history)
+    return HarnessResult(False, code, repairs + 1, error, history=history)
 
 
 def run_harness(instruction: str, llm_fn, output_path: str = "out.glsl", repairs: int = 2,

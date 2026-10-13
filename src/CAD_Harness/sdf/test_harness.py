@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 
 import numpy as np
 from PIL import Image
@@ -242,6 +243,88 @@ class TestRendering(unittest.TestCase):
         self.assertTrue(os.path.exists(self.path("snowman.png")))
         self.assertTrue(os.path.exists(self.path("snowman.glsl")))
 
+
+HAS_MLFLOW = False
+try:
+    import mlflow  # noqa: F401
+
+    HAS_MLFLOW = True
+except ImportError:
+    pass
+
+
+@unittest.skipUnless(HAS_GL, "moderngl / OpenGL 3.3 not available")
+class TestAttemptHistory(unittest.TestCase):
+    def test_history_records_every_attempt(self):
+        llm_fn, calls = scripted_llm(fenced(TYPO), fenced(SPHERE))
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_harness("a ball", llm_fn, os.path.join(tmp, "b.glsl"), **SMALL)
+        self.assertEqual([h["attempt"] for h in result.history], [1, 2])
+        self.assertIn("compile error", result.history[0]["error"])
+        self.assertEqual(result.history[1]["error"], "")
+        self.assertEqual(result.history[0]["prompt"], calls[0])
+
+
+@unittest.skipUnless(HAS_GL and HAS_MLFLOW, "needs OpenGL 3.3 and mlflow")
+class TestMlflowTracking(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.uri = f"sqlite:///{self.tmp.name}/mlflow.db"
+        patcher = unittest.mock.patch.dict(os.environ, {"MLFLOW_TRACKING_URI": self.uri})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_failure_kind(self):
+        from tracking import failure_kind
+        self.assertEqual(failure_kind(""), "none")
+        self.assertEqual(failure_kind("GLSL compile error ..."), "compile_error")
+        self.assertEqual(failure_kind("The shape is cut off by the edge of the image"), "off_frame")
+        self.assertEqual(failure_kind("Rendering timed out after 60s"), "timeout")
+
+    def test_cli_example_is_tracked(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "demo.py"), "--example", "snowman", "--track",
+             "--out-dir", self.tmp.name, "--size", "64", "--aa", "1"],
+            capture_output=True, text=True, timeout=180,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        mlflow.set_tracking_uri(self.uri)
+        runs = mlflow.search_runs(experiment_names=["sdf-harness"])
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs.iloc[0]["metrics.success"], 1)
+        self.assertEqual(runs.iloc[0]["params.mode"], "example")
+        files = [a.path for a in mlflow.MlflowClient().list_artifacts(runs.iloc[0]["run_id"])]
+        self.assertIn("snowman.png", files)
+
+    def test_generate_logs_attempts_and_llm_spans(self):
+        import argparse
+        from tracking import Tracker
+
+        args = argparse.Namespace(retries=2, size=64, views=1, aa=1, no_shadows=False, gif=False,
+                                  prompt="a ball", instruction=None, refine=None, example=None, render=None)
+        llm_fn, _ = scripted_llm(fenced(TYPO), fenced(SPHERE))
+        tracker = Tracker(args, "generate", "ball")
+        run_id = tracker.run.info.run_id
+        tracker.log_llm("fake", "scripted")
+        traced = tracker.wrap_llm(llm_fn, "fake", "scripted")
+        with tracker.root_span({"prompt": "a ball"}):
+            result = run_harness("a ball", traced, os.path.join(self.tmp.name, "ball.glsl"), **SMALL)
+        tracker.finish(True, result.attempts, files=(result.output_path, result.image_path),
+                       code=result.code, history=result.history)
+
+        run = mlflow.get_run(run_id)
+        self.assertEqual(run.data.metrics["attempts"], 2)
+        self.assertEqual(run.data.params["backend"], "fake")
+        files = [a.path for a in mlflow.MlflowClient().list_artifacts(run_id)]
+        for name in ("attempts.json", "system_prompt.txt", "ball.glsl", "ball.png"):
+            self.assertIn(name, files)
+
+        mlflow.flush_trace_async_logging()
+        traces = mlflow.search_traces(run_id=run_id, return_type="list")
+        self.assertEqual(len(traces), 1)
+        llm_spans = [sp for sp in traces[0].data.spans if sp.span_type == "LLM"]
+        self.assertEqual(len(llm_spans), 2)
 
 if __name__ == "__main__":
     unittest.main()

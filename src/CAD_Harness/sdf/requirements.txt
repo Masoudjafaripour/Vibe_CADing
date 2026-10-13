@@ -7,3 +7,6 @@ pillow
 torch
 transformers
 accelerate
+
+# Experiment tracking (optional; for demo.py --track)
+mlflow

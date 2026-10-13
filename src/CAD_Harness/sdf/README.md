@@ -127,6 +127,23 @@ Useful flags: `--retries 0-3` (LLM repair rounds, default 2), `--size`,
 `--out-dir`. For a non-OpenAI server, also set
 `OPENAI_BASE_URL=http://host:port/v1`. `SDF_LLM_MODEL` can replace `--model`.
 
+## Experiment tracking (MLflow)
+
+Add `--track` to any `demo.py` command to log it as an MLflow run
+(`pip install mlflow`). Each run records the model, prompt, success,
+attempts, failure kind, every prompt/response/error (`attempts.json`), the
+output files, and a trace of each LLM call. Runs are stored in `mlruns/` at
+the repo root (git-ignored).
+
+```bash
+python demo.py --backend openai --model gpt-4o --prompt "a stylized dragon" --gif --track
+
+# dashboard (from the repo root); on a remote server first run, on your laptop:
+#   ssh -L 5000:localhost:5000 <you>@<server>
+mlflow ui --backend-store-uri sqlite:///$PWD/mlruns/mlflow.db --port 5000
+# then open http://localhost:5000 → experiment "sdf-harness"
+```
+
 ## Status and limitations
 
 - **Tested end to end:** GPT-4o generate + refine via the OpenAI API

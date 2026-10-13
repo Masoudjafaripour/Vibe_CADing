@@ -4,8 +4,10 @@
     python demo.py --render results/dragon.glsl            # re-render any shader
     python demo.py --prompt "a stylized dragon"            # text -> GLSL
     python demo.py --refine results/dragon.glsl --instruction "make the wings larger"
+    python demo.py --prompt "a stylized dragon" --track    # log the run to MLflow (see tracking.py)
 """
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -35,6 +37,14 @@ def next_version(path: str, out_dir: str) -> str:
     return f"{stem}_v{n}"
 
 
+def start_tracking(args, mode: str, name: str):
+    """Returns a tracking.Tracker when --track is set, else None."""
+    if not args.track:
+        return None
+    from tracking import Tracker  # imports mlflow; keep it optional
+    return Tracker(args, mode, name)
+
+
 def write_metadata(glsl_path: str, **meta):
     with open(os.path.splitext(glsl_path)[0] + ".json", "w") as f:
         json.dump(meta, f, indent=2)
@@ -62,6 +72,7 @@ def main():
     parser.add_argument("--gif", action="store_true", help="also save a 360-degree turntable <name>.gif")
     parser.add_argument("--gif-frames", type=int, default=36, help="frames in the GIF (default 36)")
     parser.add_argument("--timeout", type=float, default=60, help="render timeout in seconds")
+    parser.add_argument("--track", action="store_true", help="log this run to MLflow (needs: pip install mlflow)")
     args = parser.parse_args()
 
     if args.refine and not args.instruction:
@@ -79,12 +90,17 @@ def main():
             with open(src) as f:
                 code = f.read()
             gif_path = os.path.join(args.out_dir, name + ".gif") if args.gif else None
+            tracker = start_tracking(args, "example" if args.example else "render", name)
             ok, error = render_shader(code, png_path, gif_path=gif_path, **render_kwargs)
             if not ok:
+                if tracker:
+                    tracker.finish(False, error=error, code=code)
                 print(f"Render failed:\n{error}", file=sys.stderr)
                 return 1
             if os.path.abspath(src) != os.path.abspath(glsl_path):
                 shutil.copyfile(src, glsl_path)
+            if tracker:
+                tracker.finish(True, files=(glsl_path, png_path, gif_path), code=code)
             print(f"Saved {png_path}" + (f" and {gif_path}" if gif_path else ""))
             return 0
 
@@ -96,15 +112,26 @@ def main():
         if args.prompt:
             name = args.name or slugify(args.prompt)
             glsl_path = os.path.join(args.out_dir, name + ".glsl")
-            result = run_harness(args.prompt, llm_fn, glsl_path, args.retries, args.gif, **render_kwargs)
+            tracker = start_tracking(args, "generate", name)
+            if tracker:
+                tracker.log_llm(backend, args.model)
+                llm_fn = tracker.wrap_llm(llm_fn, backend, args.model)
+            with tracker.root_span({"prompt": args.prompt}) if tracker else contextlib.nullcontext():
+                result = run_harness(args.prompt, llm_fn, glsl_path, args.retries, args.gif, **render_kwargs)
             meta = {"mode": "generate", "prompt": args.prompt}
         else:
             with open(args.refine) as f:
                 source_code = f.read()
             name = args.name or next_version(args.refine, args.out_dir)
             glsl_path = os.path.join(args.out_dir, name + ".glsl")
-            result = refine_harness(source_code, args.instruction, llm_fn, glsl_path, args.retries, args.gif,
-                                    **render_kwargs)
+            tracker = start_tracking(args, "refine", name)
+            if tracker:
+                tracker.log_llm(backend, args.model)
+                llm_fn = tracker.wrap_llm(llm_fn, backend, args.model)
+            with tracker.root_span({"source": args.refine, "instruction": args.instruction}) if tracker \
+                    else contextlib.nullcontext():
+                result = refine_harness(source_code, args.instruction, llm_fn, glsl_path, args.retries, args.gif,
+                                        **render_kwargs)
             meta = {"mode": "refine", "source": args.refine, "instruction": args.instruction}
     except RenderEnvironmentError as e:
         print(f"Cannot render on this machine: {e}", file=sys.stderr)
@@ -114,6 +141,9 @@ def main():
                 attempts=result.attempts, error=result.error)
     if result.success:
         write_metadata(glsl_path, **meta)
+        if tracker:
+            tracker.finish(True, result.attempts, files=(result.output_path, result.image_path, result.gif_path),
+                           code=result.code, history=result.history)
         saved = ", ".join(p for p in (result.output_path, result.image_path, result.gif_path) if p)
         print(f"Saved {saved} (attempt {result.attempts}/{args.retries + 1})")
         return 0
@@ -122,6 +152,9 @@ def main():
     with open(failed_path, "w") as f:
         f.write(result.code + "\n")
     write_metadata(failed_path, **meta)
+    if tracker:
+        tracker.finish(False, result.attempts, result.error, files=(failed_path,), code=result.code,
+                       history=result.history)
     print(f"Failed after {result.attempts} attempts; last code in {failed_path}\n{result.error}", file=sys.stderr)
     return 1
 
