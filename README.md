@@ -16,6 +16,7 @@ These modules form an iterative, feedback-driven workflow for creating, refining
 * **LLM → CAD code → B-rep / STEP**: [CadQuery](src/CAD_Harness/cadquery/) and [build123d](src/CAD_Harness/build123d/) harnesses with execute-and-retry loops
 * **LLM → GLSL signed distance function**: GPU-rendered implicit surfaces with PNG/GIF output and text-based refinement ([SDF](src/CAD_Harness/sdf/))
 * **LLM → JSON spec → pythonOCC B-rep** for simple primitives ([B-rep](src/B-rep/))
+* **Text → 3D character animation**: AR and diffusion motion models, continuous and path-steered walking, rendered as a game-style character ([animation](#text--3d-character-animation))
 * **Supporting demos**: text → image → SVG, PixelCNN 2D CAD grids, CLIP text/mesh retrieval ([status](#current-implementation-status))
 
 <p align="center">
@@ -156,6 +157,7 @@ The sections above describe the target design. Below is the **actual state of th
 | Notebooks | [src/notebooks/](src/notebooks/) | 📝 Empty | Placeholders for diffusion testing and SVG conversion experiments |
 | Data | [data/prompts.jsonl](data/prompts.jsonl) | 📝 Empty | Placeholder for prompt dataset |
 | DVC pipeline | [dvc.yaml](dvc.yaml) | ✅ Present | Single `generate` stage running `python run_pipeline.py` |
+| Text → 3D character animation | [src/animation/](src/animation/) | ✅ Working demo (synthetic data) | 18-joint skeleton + FK; text-conditioned AR Transformer and DDPM over joint rotations, trained on procedural motions; a second DDPM conditioned on past frames and a 2D root path for continuous, steerable walking; game-style SDF character renderer. See [Text → 3D Character Animation](#text--3d-character-animation) |
 
 ## Commands to Run
 
@@ -186,6 +188,10 @@ print(run_harness('a cube of size 5', qwen_llm, output_path='cube.step'))
 cd src/CAD_Harness/sdf && python demo.py --example snowman --gif   # no LLM
 python demo.py --backend openai --model gpt-4o --prompt "a stylized dragon" --gif
 
+# 8. Text -> 3D character animation: AR + DDPM, then controllable DDPM (needs: torch, matplotlib, pillow; moderngl to render)
+cd src/animation && python generate_motion.py && python control.py
+python render_character.py outputs/*.npz --compare
+
 # DVC-tracked pipeline stage
 dvc repro generate
 ```
@@ -211,6 +217,15 @@ Example — "a 40x20x5mm mounting plate with two 4mm holes and 2mm filleted corn
 <img src="src/CAD_Harness/sdf/assets/dragon_gpt4o.gif" width="280" alt="GPT-4o dragon">
 
 *GPT-4o: "A stylized dragon made of smooth geometric primitives", then "Make the wings larger". The result is 1.8 KB of GLSL.*
+
+---
+
+## Text → 3D Character Animation
+
+[src/animation/](src/animation/) turns text into 3D character motion with AR and diffusion models over an 18-joint skeleton, rendered as a game-style SDF character.
+A second DDPM, conditioned on past frames and a 2D root path, generates continuous walks that follow "walk straight / turn left / turn right" paths to within 2–4 cm (details in [src/animation/README.md](src/animation/README.md)).
+
+![Trajectory-conditioned walking: straight, left, right](src/animation/assets/trajectory_compare.webp)
 
 ---
 
