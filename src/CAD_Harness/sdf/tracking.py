@@ -99,6 +99,10 @@ class Tracker:
             span.set_inputs(inputs)
             yield span
 
+    def log_file(self, path: str):
+        """Attaches an extra output (e.g. the .stl) to the run."""
+        mlflow.log_artifact(path)
+
     def finish(self, success: bool, attempts: int = 1, error: str = "", files=(), code: str = "",
                history=None):
         mlflow.log_metrics({

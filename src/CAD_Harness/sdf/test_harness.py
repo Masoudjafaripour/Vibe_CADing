@@ -326,5 +326,71 @@ class TestMlflowTracking(unittest.TestCase):
         llm_spans = [sp for sp in traces[0].data.spans if sp.span_type == "LLM"]
         self.assertEqual(len(llm_spans), 2)
 
+HAS_GEOM = False
+try:
+    import vibecad_geom  # noqa: F401  (pip install ./src/geometry_engine)
+
+    HAS_GEOM = True
+except ImportError:
+    pass
+
+
+def stl_triangles(path):
+    with open(path, "rb") as f:
+        data = f.read()
+    count = int.from_bytes(data[80:84], "little")
+    assert len(data) == 84 + 50 * count, "truncated STL"
+    return count
+
+
+@unittest.skipUnless(HAS_GL and HAS_GEOM, "needs OpenGL 3.3 and vibecad_geom")
+class TestStlExport(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def to_stl(self, code, *extra):
+        glsl = os.path.join(self.tmp.name, "shape.glsl")
+        stl = os.path.join(self.tmp.name, "shape.stl")
+        with open(glsl, "w") as f:
+            f.write(code)
+        proc = subprocess.run([sys.executable, os.path.join(HERE, "to_stl.py"), glsl, stl, "--res", "32", *extra],
+                              capture_output=True, text=True, timeout=120)
+        return proc, stl
+
+    def test_sphere_is_watertight_and_print_ready(self):
+        proc, stl = self.to_stl(SPHERE)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertGreater(stl_triangles(stl), 100)
+        self.assertIn("watertight yes", proc.stdout)
+        self.assertIn("50.0 x 50.0 x 50.0 mm", proc.stdout)  # radius 0.5 at 50 mm per unit
+
+    def test_grid_matches_glsl(self):
+        from to_stl import sample_sdf
+        grid = sample_sdf(SPHERE, 16, -1.0, 1.0)  # [z, y, x]
+        x = np.linspace(-1, 1, 17)
+        z, y, xx = np.meshgrid(x, x, x, indexing="ij")
+        np.testing.assert_allclose(grid, np.sqrt(xx ** 2 + y ** 2 + z ** 2) - 0.5, atol=1e-5)
+
+    def test_shape_bigger_than_box_is_capped_closed(self):
+        proc, _ = self.to_stl("float sdf(vec3 p) { return sdSphere(p, 1.5); }")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("watertight yes", proc.stdout)
+        self.assertIn("capped", proc.stdout)
+
+    def test_compile_error(self):
+        proc, _ = self.to_stl(TYPO)
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("line 2: return lenght(p) - 0.5;", proc.stderr)
+
+    def test_demo_cli_stl_flag(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "demo.py"), "--example", "duck", "--stl", "--stl-res", "32",
+             "--out-dir", self.tmp.name, "--size", "64", "--aa", "1"],
+            capture_output=True, text=True, timeout=180,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertGreater(stl_triangles(os.path.join(self.tmp.name, "duck.stl")), 100)
+
 if __name__ == "__main__":
     unittest.main()

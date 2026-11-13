@@ -5,6 +5,7 @@
     python demo.py --prompt "a stylized dragon"            # text -> GLSL
     python demo.py --refine results/dragon.glsl --instruction "make the wings larger"
     python demo.py --prompt "a stylized dragon" --track    # log the run to MLflow (see tracking.py)
+    python demo.py --example duck --stl                    # also export a 3D-printable STL (see to_stl.py)
 """
 import argparse
 import contextlib
@@ -12,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 from harness import RESULTS_DIR, RenderEnvironmentError, refine_harness, render_shader, run_harness
@@ -35,6 +37,23 @@ def next_version(path: str, out_dir: str) -> str:
     while os.path.exists(os.path.join(out_dir, f"{stem}_v{n}.glsl")):
         n += 1
     return f"{stem}_v{n}"
+
+
+def export_stl(glsl_path: str, args):
+    """Runs to_stl.py in a subprocess (same isolation as rendering). Returns the
+    .stl path, or None if the export failed (the rest of the run still counts)."""
+    stl_path = os.path.splitext(glsl_path)[0] + ".stl"
+    cmd = [sys.executable, os.path.join(HERE, "to_stl.py"), glsl_path, stl_path, "--res", str(args.stl_res)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=max(args.timeout, 120))
+    except subprocess.TimeoutExpired:
+        print("STL export timed out", file=sys.stderr)
+        return None
+    if proc.returncode != 0:
+        print(f"STL export failed:\n{proc.stderr.strip()}", file=sys.stderr)
+        return None
+    print(proc.stdout.rstrip())
+    return stl_path
 
 
 def start_tracking(args, mode: str, name: str):
@@ -73,6 +92,9 @@ def main():
     parser.add_argument("--gif-frames", type=int, default=36, help="frames in the GIF (default 36)")
     parser.add_argument("--timeout", type=float, default=60, help="render timeout in seconds")
     parser.add_argument("--track", action="store_true", help="log this run to MLflow (needs: pip install mlflow)")
+    parser.add_argument("--stl", action="store_true",
+                        help="also export a watertight <name>.stl (needs: pip install ./src/geometry_engine)")
+    parser.add_argument("--stl-res", type=int, default=128, help="STL grid cells per axis, 16-512 (default 128)")
     args = parser.parse_args()
 
     if args.refine and not args.instruction:
@@ -99,6 +121,9 @@ def main():
                 return 1
             if os.path.abspath(src) != os.path.abspath(glsl_path):
                 shutil.copyfile(src, glsl_path)
+            stl_path = export_stl(glsl_path, args) if args.stl else None
+            if tracker and stl_path:
+                tracker.log_file(stl_path)
             if tracker:
                 tracker.finish(True, files=(glsl_path, png_path, gif_path), code=code)
             print(f"Saved {png_path}" + (f" and {gif_path}" if gif_path else ""))
@@ -141,6 +166,9 @@ def main():
                 attempts=result.attempts, error=result.error)
     if result.success:
         write_metadata(glsl_path, **meta)
+        stl_path = export_stl(result.output_path, args) if args.stl else None
+        if tracker and stl_path:
+            tracker.log_file(stl_path)
         if tracker:
             tracker.finish(True, result.attempts, files=(result.output_path, result.image_path, result.gif_path),
                            code=result.code, history=result.history)

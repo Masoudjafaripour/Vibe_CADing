@@ -144,6 +144,21 @@ mlflow ui --backend-store-uri sqlite:///$PWD/mlruns/mlflow.db --port 5000
 # then open http://localhost:5000 → experiment "sdf-harness"
 ```
 
+## Export to STL (3D printing)
+
+Turn any shape into a watertight STL mesh with the C++ geometry engine
+([`../../geometry_engine`](../../geometry_engine)):
+
+```bash
+pip install ./src/geometry_engine                     # once, from the repo root
+python demo.py --example dragon_gpt4o --stl           # or add --stl to any --prompt / --refine run
+python to_stl.py results/dragon.glsl dragon.stl --res 192
+```
+
+`sdf()` is sampled on a grid on the GPU, meshed by marching cubes in C++, checked
+(watertight, shells, genus) and written Z-up in millimetres. Increase `--stl-res`
+/ `--res` for thin parts (default 128). Colors are not exported; STL has none.
+
 ## Status and limitations
 
 - **Tested end to end:** GPT-4o generate + refine via the OpenAI API

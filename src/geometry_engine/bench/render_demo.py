@@ -1,11 +1,13 @@
-"""Renders the README demo images from STL files made by mc_demo.
+"""Renders the README demo images.
 
     ./build/mc_demo snowman 12 build/snowman_12.stl   (also 24, 64; torus 32)
     python bench/render_demo.py      # needs numpy, matplotlib, pillow
+    python bench/render_demo.py glsl # GLSL examples -> meshes (needs moderngl + vibecad_geom)
 """
 import io
 import os
 import struct
+import sys
 
 import matplotlib
 
@@ -17,6 +19,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(HERE, "..", "build")
+SDF_DIR = os.path.join(HERE, "..", "..", "CAD_Harness", "sdf")
 ASSETS = os.path.join(HERE, "..", "assets")
 LIGHT = np.array([0.4, 0.8, 0.5]) / np.linalg.norm([0.4, 0.8, 0.5])
 
@@ -70,8 +73,57 @@ def turntable(name, color, frames=24):
     images[0].save(out, save_all=True, append_images=images[1:], duration=80, loop=0, optimize=True)
 
 
+def glsl_to_mesh():
+    """Top: the harness's GLSL render. Bottom: the mesh the C++ engine extracts from the same code."""
+    sys.path.insert(0, SDF_DIR)
+    import vibecad_geom
+    from to_stl import close_boundary, sample_sdf
+
+    names = [("snowman", "Snowman"), ("duck", "Rubber duck"), ("dragon_gpt4o", "Dragon (GPT-4o)")]
+    orange = np.array([0.95, 0.55, 0.25])
+    fig = plt.figure(figsize=(10, 6.4))
+    meshes = {}
+    for col, (name, title) in enumerate(names):
+        with open(os.path.join(SDF_DIR, "examples", name + ".glsl")) as f:
+            grid = sample_sdf(f.read(), 160, -1.1, 1.1)
+        close_boundary(grid)
+        v, t = vibecad_geom.marching_cubes(grid, -1.1, 1.1)
+        s = vibecad_geom.analyze(v, t)
+        meshes[name] = v[t][:, :, [0, 2, 1]]
+
+        render = os.path.join(SDF_DIR, "assets", name + (".gif" if name == "dragon_gpt4o" else ".png"))
+        ax = fig.add_subplot(2, 3, col + 1)
+        ax.imshow(Image.open(render).convert("RGB"))
+        ax.set_title(f"{title}: GLSL render", fontsize=10)
+        ax.axis("off")
+
+        ax = fig.add_subplot(2, 3, col + 4, projection="3d")
+        draw(ax, meshes[name], -125, orange, edges=False)
+        shells = f"{s['components']} shell" + ("s" if s["components"] > 1 else "")
+        ax.set_title(f"STL mesh: {len(t):,} triangles\nwatertight · {shells} · genus {s['genus']}", fontsize=9, y=0.0)
+    fig.subplots_adjust(0, 0.02, 1, 0.97, 0.02, 0.08)
+    fig.savefig(os.path.join(ASSETS, "glsl_to_stl.png"), dpi=100)
+    plt.close(fig)
+
+    images = []
+    for i in range(24):
+        fig = plt.figure(figsize=(3, 3))
+        draw(fig.add_subplot(projection="3d"), meshes["dragon_gpt4o"], -125 + 15 * i, orange, edges=False)
+        fig.subplots_adjust(0, 0, 1, 1)
+        buf = io.BytesIO()
+        fig.savefig(buf, dpi=90)
+        plt.close(fig)
+        images.append(Image.open(buf).convert("P", palette=Image.ADAPTIVE))
+    images[0].save(os.path.join(ASSETS, "dragon_mesh.gif"), save_all=True, append_images=images[1:],
+                   duration=80, loop=0, optimize=True)
+
+
 if __name__ == "__main__":
     os.makedirs(ASSETS, exist_ok=True)
+    if sys.argv[1:] == ["glsl"]:
+        glsl_to_mesh()
+        print("wrote", sorted(os.listdir(ASSETS)))
+        sys.exit()
     resolution_strip()
     turntable("snowman_24.stl", np.array([0.95, 0.55, 0.25]))
     turntable("torus_32.stl", np.array([0.35, 0.55, 0.95]))

@@ -10,6 +10,31 @@ The SDF harness (`../CAD_Harness/sdf`) produces shapes as GLSL code that can
 only be *rendered*. This module makes them *real geometry*: a closed mesh you
 can open in MeshLab, Blender or a 3D-printer slicer.
 
+## From LLM shapes to STL
+
+Any GLSL shape from the SDF harness, including LLM-written ones, becomes a
+printable mesh: the GPU samples its `sdf()` on a grid, and this engine meshes it.
+
+![GLSL renders and the STL meshes extracted from the same code](assets/glsl_to_stl.png)
+
+```bash
+pip install ./src/geometry_engine                  # builds the C++ module (from the repo root)
+cd src/CAD_Harness/sdf
+python demo.py --example dragon_gpt4o --stl        # → results/dragon_gpt4o.stl
+python to_stl.py examples/duck.glsl duck.stl       # any .glsl file directly
+```
+
+```
+results/dragon_gpt4o.stl: 36,538 vertices, 73,068 triangles (160^3 grid; GPU sampling 227 ms, C++ meshing 35 ms)
+  size 99.0 x 30.0 x 88.2 mm | volume 51406.3 mm^3 | watertight yes | shells 3 | genus 1
+```
+
+The STL is Z-up, in millimetres (1 SDF unit = 50 mm) and sits on the build plate,
+so it opens directly in a slicer. The checks also catch design flaws a render
+hides: the GPT-4o dragon has **3 shells**, because its legs float below the body.
+
+<img src="assets/dragon_mesh.gif" width="280" alt="Rotating STL mesh of the GPT-4o dragon">
+
 ## Demo
 
 The same snowman SDF meshed at three grid resolutions: more cells, more triangles, smoother surface.
@@ -76,12 +101,27 @@ time: sample 37.9 ms | marching cubes 16.2 ms | checks 18.1 ms
 volume 0.5781 | area 4.1425 | watertight yes | oriented yes | shells 1 | genus 0
 ```
 
+## Python module
+
+`pip install ./src/geometry_engine` builds `vibecad_geom` (pybind11; NumPy in, NumPy out):
+
+```python
+import vibecad_geom as g
+vertices, triangles = g.marching_cubes(values, lo=-1, hi=1)   # values: (m, m, m) float32, [z, y, x]
+g.analyze(vertices, triangles)    # {'volume', 'area', 'watertight', 'oriented', 'components', 'genus', ...}
+g.write_stl(vertices, triangles, "shape.stl")
+```
+
+Meshing releases the Python GIL, so it can run alongside other Python threads.
+
 ## How we know it's correct
 
 `tests/test_mc.cpp` checks:
 - sphere and torus volume/area against the exact formulas (within 1–2%)
 - genus: sphere 0, torus 1; two separate spheres give 2 shells
 - ~20,000 random grids that hit all 256 cube cases, all closed and consistently oriented
+- `tests/test_bindings.py`: the Python module (volume, genus, STL size, bad input)
+- `../CAD_Harness/sdf/test_harness.py`: GPU sampling matches the exact SDF, `to_stl.py` and `demo.py --stl`
 
 ## Files
 
@@ -94,11 +134,15 @@ volume 0.5781 | area 4.1425 | watertight yes | oriented yes | shells 1 | genus 0
 | `src/mesh_stats.cpp` | volume, area, watertight, genus |
 | `src/stl.cpp` | binary STL writer |
 | `src/mc_demo.cpp` | command-line demo |
+| `src/bindings.cpp` | pybind11 module `vibecad_geom` |
+| `pyproject.toml` | `pip install` build (scikit-build-core) |
+| `../CAD_Harness/sdf/to_stl.py` | GLSL → GPU grid → this engine → STL |
 | `bench/mc_python.py` | pure-Python twin for speed comparison |
-| `bench/render_demo.py` | renders the demo images in `assets/` |
+| `bench/render_demo.py` | renders the demo images in `assets/` (`glsl` arg: GLSL → mesh figure) |
 
 ## Next steps
 
-- pybind11 bindings so `demo.py` can turn LLM shapes into STL files
-- sample the GLSL `sdf()` on the GPU and pass the grid to C++
+- ~~pybind11 bindings so `demo.py` can turn LLM shapes into STL files~~ done
+- ~~sample the GLSL `sdf()` on the GPU and pass the grid to C++~~ done
 - mesh smoothing, simplification, OBJ export
+- use shells / genus as automatic feedback to the LLM ("your legs are not attached")
