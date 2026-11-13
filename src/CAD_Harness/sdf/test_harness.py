@@ -392,5 +392,40 @@ class TestStlExport(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertGreater(stl_triangles(os.path.join(self.tmp.name, "duck.stl")), 100)
 
+@unittest.skipUnless(HAS_GL, "moderngl / OpenGL 3.3 not available")
+class TestGallery(unittest.TestCase):
+    """The text-to-CAD gallery: every recorded answer passes the harness, and
+    the mesh topology matches what the prompt asks for."""
+
+    def test_every_shape_has_a_prompt_and_passes_the_harness(self):
+        from gallery import load_prompts
+        items = load_prompts()
+        self.assertGreaterEqual(len(items), 8)
+        with tempfile.TemporaryDirectory() as tmp:
+            for it in items:
+                self.assertNotEqual(it["prompt"], it["name"], f"{it['name']}: missing // Prompt header")
+                ok, error = render_shader(it["recorded"], os.path.join(tmp, "x.png"), **SMALL)
+                self.assertTrue(ok, f"{it['name']}: {error}")
+
+    @unittest.skipUnless(HAS_GEOM, "needs vibecad_geom")
+    def test_topology_matches_the_prompts(self):
+        expected = {  # name: (shells, genus)
+            "gear": (1, 7),    # 6 lightening holes + the bore
+            "chain": (3, 3),   # three separate, interlocked rings
+            "gyroid": (1, 15), # one connected lattice, no loose fragments
+            "mug": (1, 1),     # handle; coffee fused to the cup
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, (shells, genus) in expected.items():
+                js = os.path.join(tmp, name + ".json")
+                proc = subprocess.run([sys.executable, os.path.join(HERE, "to_stl.py"),
+                                       os.path.join(HERE, "gallery", name + ".glsl"), os.path.join(tmp, name + ".stl"),
+                                       "--res", "160", "--json", js], capture_output=True, text=True, timeout=300)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                with open(js) as f:
+                    st = json.load(f)
+                self.assertTrue(st["watertight"], name)
+                self.assertEqual((st["components"], st["genus"]), (shells, genus), name)
+
 if __name__ == "__main__":
     unittest.main()

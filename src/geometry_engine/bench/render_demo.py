@@ -3,11 +3,13 @@
     ./build/mc_demo snowman 12 build/snowman_12.stl   (also 24, 64; torus 32)
     python bench/render_demo.py      # needs numpy, matplotlib, pillow
     python bench/render_demo.py glsl # GLSL examples -> meshes (needs moderngl + vibecad_geom)
+    python bench/render_demo.py gallery  # text-to-CAD gallery meshes (same needs)
 """
 import io
 import os
 import struct
 import sys
+import time
 
 import matplotlib
 
@@ -118,8 +120,42 @@ def glsl_to_mesh():
                    duration=80, loop=0, optimize=True)
 
 
+def gallery_meshes(res=160):
+    """The text-to-CAD gallery as the C++ engine sees it: each prompt's mesh + checks."""
+    sys.path.insert(0, SDF_DIR)
+    import vibecad_geom
+    from gallery import load_prompts
+    from to_stl import close_boundary, sample_sdf
+
+    items = load_prompts()
+    cols = 4
+    rows = -(-len(items) // cols)
+    fig = plt.figure(figsize=(14, 4.4 * rows))
+    for i, it in enumerate(items):
+        grid = sample_sdf(it["recorded"], res, -1.1, 1.1)
+        close_boundary(grid)
+        t0 = time.perf_counter()
+        v, t = vibecad_geom.marching_cubes(grid, -1.1, 1.1)
+        ms = (time.perf_counter() - t0) * 1000
+        s = vibecad_geom.analyze(v, t)
+        ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
+        draw(ax, v[t][:, :, [0, 2, 1]], -125, np.array([0.55, 0.62, 0.78]), edges=False)
+        shells = f"{s['components']} shell" + ("s" if s["components"] != 1 else "")
+        ax.set_title(f"{it['name'].capitalize()}\n{len(t) / 1000:.0f}k triangles in {ms:.0f} ms\n"
+                     f"{'watertight' if s['watertight'] else 'NOT watertight'} · {shells} · genus {s['genus']}",
+                     fontsize=10, y=-0.1)
+        print(f"{it['name']:8s} {len(t):7d} tris  {ms:5.0f} ms  shells {s['components']}  genus {s['genus']}")
+    fig.subplots_adjust(0, 0.07, 1, 1, 0.0, 0.3)
+    fig.savefig(os.path.join(ASSETS, "gallery_meshes.png"), dpi=90)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     os.makedirs(ASSETS, exist_ok=True)
+    if sys.argv[1:] == ["gallery"]:
+        gallery_meshes()
+        print("wrote", sorted(os.listdir(ASSETS)))
+        sys.exit()
     if sys.argv[1:] == ["glsl"]:
         glsl_to_mesh()
         print("wrote", sorted(os.listdir(ASSETS)))

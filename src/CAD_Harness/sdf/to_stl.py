@@ -12,6 +12,7 @@ come out ~10 cm tall) and placed on the build plate (z = 0), ready for a slicer.
 Exit codes: 0 ok, 1 shader error, 3 no OpenGL, 4 vibecad_geom not installed.
 """
 import argparse
+import json
 import re
 import sys
 import time
@@ -96,6 +97,7 @@ def main():
     parser.add_argument("--margin", type=float, default=0.1, help="padding around the [-1, 1]^3 box (default 0.1)")
     parser.add_argument("--scale", type=float, default=50.0, help="mm per SDF unit (default 50)")
     parser.add_argument("--y-up", action="store_true", help="keep the SDF's Y-up axes and units (no print transform)")
+    parser.add_argument("--json", metavar="PATH", help="also write the mesh stats as JSON")
     args = parser.parse_args()
     if not 16 <= args.res <= 512:
         parser.error("--res must be between 16 and 512")
@@ -142,6 +144,11 @@ def main():
           f"watertight {'yes' if stats['watertight'] else 'no'} | shells {stats['components']} | genus {stats['genus']}")
     if clipped:
         print(f"  note: the shape extends past the sampled box; {clipped} boundary samples were capped")
+    if args.json:
+        with open(args.json, "w") as f:
+            json.dump({**stats, "vertices": len(vertices), "triangles": len(triangles), "res": args.res,
+                       "size": [round(float(x), 2) for x in size], "unit": unit, "clipped": clipped,
+                       "sample_ms": round(t_sample * 1000, 1), "mesh_ms": round(t_mesh * 1000, 1)}, f, indent=2)
 
 
 if __name__ == "__main__":

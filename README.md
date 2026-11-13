@@ -219,6 +219,10 @@ Example — "a 40x20x5mm mounting plate with two 4mm holes and 2mm filleted corn
 
 *GPT-4o: "A stylized dragon made of smooth geometric primitives", then "Make the wings larger". The result is 1.8 KB of GLSL.*
 
+**Text-to-CAD gallery:** eight prompts (gear, chess rook, mug, spring, gyroid lattice, rocket, twisted vase, interlocked chain), each turned into GLSL, validated, rendered and exported as a watertight STL. See the [SDF README](src/CAD_Harness/sdf/README.md#text-to-cad-gallery).
+
+<img src="src/CAD_Harness/sdf/assets/gallery.gif" width="560" alt="Text-to-CAD gallery">
+
 ---
 
 ## Text → 3D Character Animation

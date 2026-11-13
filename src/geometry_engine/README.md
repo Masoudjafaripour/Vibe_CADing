@@ -35,6 +35,30 @@ hides: the GPT-4o dragon has **3 shells**, because its legs float below the body
 
 <img src="assets/dragon_mesh.gif" width="280" alt="Rotating STL mesh of the GPT-4o dragon">
 
+## Text-to-CAD gallery: the meshes
+
+Eight text prompts (from the [SDF gallery](../CAD_Harness/sdf/README.md#text-to-cad-gallery)),
+each turned into GLSL by an LLM and then meshed by this engine at 160³. These are the
+real STL meshes, with the checks the engine reports:
+
+![C++ meshes of the eight gallery prompts](assets/gallery_meshes.png)
+
+| Shape | Check | Why it matters |
+|---|---|---|
+| Gear | genus 7 | exactly the 6 lightening holes + the bore the prompt asked for |
+| Chain | 3 shells, genus 3 | three separate interlocked rings: prints in one go, links move |
+| Gyroid | 1 shell, genus 15 | one connected lattice; the first version had **19 loose fragments**, invisible in the render |
+| Mug | 1 shell, genus 1 | the handle; an earlier version's coffee floated as a 2nd shell |
+
+Each mesh takes 30–40 ms in C++. Resolution matters for topology: at 128³ the
+chain's 0.02-unit gap between links is smaller than a grid cell, so they fuse into
+1 shell. Thin features need a finer grid.
+
+```bash
+cd src/CAD_Harness/sdf && python gallery.py           # all 8: render + STL + checks
+cd src/geometry_engine && python bench/render_demo.py gallery   # this figure
+```
+
 ## Demo
 
 The same snowman SDF meshed at three grid resolutions: more cells, more triangles, smoother surface.
@@ -138,7 +162,7 @@ Meshing releases the Python GIL, so it can run alongside other Python threads.
 | `pyproject.toml` | `pip install` build (scikit-build-core) |
 | `../CAD_Harness/sdf/to_stl.py` | GLSL → GPU grid → this engine → STL |
 | `bench/mc_python.py` | pure-Python twin for speed comparison |
-| `bench/render_demo.py` | renders the demo images in `assets/` (`glsl` arg: GLSL → mesh figure) |
+| `bench/render_demo.py` | renders the demo images in `assets/` (`glsl` / `gallery` args for the LLM-shape figures) |
 
 ## Next steps
 

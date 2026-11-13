@@ -144,6 +144,31 @@ mlflow ui --backend-store-uri sqlite:///$PWD/mlruns/mlflow.db --port 5000
 # then open http://localhost:5000 → experiment "sdf-harness"
 ```
 
+## Text-to-CAD gallery
+
+Eight prompts, from CAD parts to organic forms, each run through the full pipeline:
+**prompt → LLM → GLSL → validate / repair → render → STL (C++, checked)**.
+
+![Text-to-CAD gallery](assets/gallery.gif)
+
+![Gallery with prompts and mesh checks](assets/gallery.png)
+
+```bash
+python gallery.py                                    # replay the recorded LLM answers in gallery/
+python gallery.py --backend openai --model gpt-4o    # same prompts, live LLM
+python gallery.py --only gear chain --publish        # subset; --publish updates assets/
+```
+
+Each `gallery/<name>.glsl` starts with its `// Prompt:` and is the LLM's answer
+(written by Claude for this gallery; rerun with `--backend openai` for GPT). Replay
+sends it through `run_harness` exactly like a live answer.
+
+The mesh checks verify what the prompt asked for: the gear has **genus 7** (6 holes +
+the bore), and the chain is **3 separate shells** (interlocked rings that print in
+one go). They also caught two flaws that looked fine in the render: the first gyroid
+fell apart into **19 loose fragments**, and the coffee floated free of the mug. Both
+were fixed and are now regression tests.
+
 ## Export to STL (3D printing)
 
 Turn any shape into a watertight STL mesh with the C++ geometry engine
