@@ -11,6 +11,7 @@ float sdf(vec3 p) {
     float wall = abs(outer) - 0.025;
     float solid_base = max(outer, p.y + 0.92);                // closed bottom
     float body = min(wall, solid_base);
+    body = max(body, -1.0 - p.y);                             // nothing below the floor
     return max(body, p.y - 0.85);                             // open top
 }
 

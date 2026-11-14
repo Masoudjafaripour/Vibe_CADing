@@ -164,10 +164,47 @@ Each `gallery/<name>.glsl` starts with its `// Prompt:` and is the LLM's answer
 sends it through `run_harness` exactly like a live answer.
 
 The mesh checks verify what the prompt asked for: the gear has **genus 7** (6 holes +
-the bore), and the chain is **3 separate shells** (interlocked rings that print in
-one go). They also caught two flaws that looked fine in the render: the first gyroid
-fell apart into **19 loose fragments**, and the coffee floated free of the mug. Both
-were fixed and are now regression tests.
+the bore), and the chain is **3 separate shells** (interlocked rings). They also caught
+flaws that looked fine in the render: the first gyroid fell apart into **19 loose
+fragments**, and the coffee floated free of the mug. The printability check (below)
+then found four more. All were fixed and are regression tests.
+
+## 3D-printability check
+
+A render can look perfect and still be unprintable. `check_print.py` runs C++
+checks ([geometry engine](../../geometry_engine/README.md#printability-analysis)) on
+the shape and gives a verdict: **printable**, **printable with supports**, or
+**not printable**.
+
+```bash
+python check_print.py gallery/mug.glsl                     # report
+python demo.py --prompt "a coffee mug" --print-check        # LLM repairs until printable
+python ../../pipeline/validator.py part.stl                 # any STL file (no wall thickness)
+```
+
+| Check | How (C++) | Severity |
+|---|---|---|
+| Floating parts | lowest point of each separate shell vs. the build plate | critical |
+| Thin walls | exact distance transform + morphological opening: material thinner than 1 mm, by volume | critical over 2%, warning over 0.1% |
+| Watertight, build volume | edge manifold check; bounding box vs. a 220 × 220 × 250 mm bed | critical |
+| Overhangs | faces tilted more than 45° from vertical, not on the plate | warning: needs supports |
+| Bed contact | flat area on the plate vs. the footprint | warning: may tip or detach |
+
+With `--print-check`, critical problems go back to the LLM with locations in its own
+SDF coordinates, e.g. *"A separate part floats above the ground near (x=0.50, y=-0.03,
+z=0.00): connect it to the main body or lower it to touch y = -1."*
+
+On the gallery it found four flaws that the renders hide, all fixed since:
+
+| Shape | Found | Cause in the GLSL |
+|---|---|---|
+| Chain | middle link floats 10 mm above the plate | lay flat in mid-air; links now tilted ±45° so all touch the plate |
+| Gyroid | 6 loose pieces at 256³ (one piece at 160³) | sphere cut the lattice into islands; it now thins out near the surface |
+| Rook | 23 mm² bed contact on a 40 mm base | body's round end and smooth blend bulged 1 mm below the flat foot |
+| Vase | extends outside the box | wall had no bottom cut |
+
+It also flags the GPT-4o dragon (a leg floats 18 mm up) and warns that the snowman's
+1.2 mm twigs are fragile.
 
 ## Export to STL (3D printing)
 

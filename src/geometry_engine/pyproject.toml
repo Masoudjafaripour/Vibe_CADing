@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "vibecad-geom"
 version = "0.1.0"
-description = "SDF grid to watertight STL mesh (marching cubes) for Vibe-CADing"
+description = "Vibe-CADing C++ engine: SDF to watertight STL (vibecad_geom) and skeletal motion (vibecad_motion)"
 requires-python = ">=3.9"
 dependencies = ["numpy"]
 

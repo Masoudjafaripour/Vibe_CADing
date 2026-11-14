@@ -5,6 +5,7 @@ an OpenGL 3.3 context isn't available.
 import http.server
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -412,7 +413,7 @@ class TestGallery(unittest.TestCase):
         expected = {  # name: (shells, genus)
             "gear": (1, 7),    # 6 lightening holes + the bore
             "chain": (3, 3),   # three separate, interlocked rings
-            "gyroid": (1, 15), # one connected lattice, no loose fragments
+            "gyroid": (1, 10), # one connected lattice, no loose fragments (thinned at the surface)
             "mug": (1, 1),     # handle; coffee fused to the cup
         }
         with tempfile.TemporaryDirectory() as tmp:
@@ -426,6 +427,67 @@ class TestGallery(unittest.TestCase):
                     st = json.load(f)
                 self.assertTrue(st["watertight"], name)
                 self.assertEqual((st["components"], st["genus"]), (shells, genus), name)
+
+FLOATING = """float sdf(vec3 p) {
+    return min(sdBox(p - vec3(-0.4, -0.7, 0.0), vec3(0.3)), sdSphere(p - vec3(0.5, 0.2, 0.0), 0.25));
+}"""
+GROUNDED = FLOATING.replace("vec3(0.5, 0.2, 0.0), 0.25", "vec3(0.5, -0.75, 0.0), 0.25")
+THIN_PLATE = "float sdf(vec3 p) { return sdBox(p - vec3(0.0, -0.5, 0.0), vec3(0.6, 0.5, 0.008)); }"
+
+
+@unittest.skipUnless(HAS_GL and HAS_GEOM, "needs OpenGL 3.3 and vibecad_geom")
+class TestPrintCheck(unittest.TestCase):
+    def run_check(self, code, *extra):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "shape.glsl")
+            with open(path, "w") as f:
+                f.write(code)
+            return subprocess.run([sys.executable, os.path.join(HERE, "check_print.py"), path, "--res", "128", *extra],
+                                  capture_output=True, text=True, timeout=300)
+
+    def test_box_is_printable(self):
+        proc = self.run_check("float sdf(vec3 p) { return sdBox(p - vec3(0.0, -0.6, 0.0), vec3(0.4)); }")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("verdict: PRINTABLE", proc.stdout)
+
+    def test_floating_part_feedback_points_at_it(self):
+        proc = self.run_check(FLOATING, "--feedback")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("floats above the ground", proc.stderr)
+        x = float(re.search(r"x=(-?[\d.]+)", proc.stderr).group(1))
+        self.assertGreater(x, 0.3)  # the raised sphere is at x = 0.5
+
+    def test_thin_wall_is_critical(self):
+        proc = self.run_check(THIN_PLATE)  # 0.8 mm plate (1 unit = 50 mm)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("thinner than 1.0 mm", proc.stdout)
+
+    def test_repair_loop_fixes_a_floating_part(self):
+        from demo import print_check
+        llm_fn, calls = scripted_llm(fenced(FLOATING), fenced(GROUNDED))
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_harness("a box and a ball", llm_fn, os.path.join(tmp, "s.glsl"), extra_check=print_check,
+                                 **SMALL)
+        self.assertTrue(result.success, result.error)
+        self.assertEqual(result.attempts, 2)
+        self.assertIn("not 3D-printable", calls[1])
+        self.assertIn("floats above the ground", result.history[0]["error"])
+
+    def test_stl_validator(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stl = os.path.join(tmp, "gear.stl")
+            subprocess.run([sys.executable, os.path.join(HERE, "to_stl.py"), os.path.join(HERE, "gallery", "gear.glsl"),
+                            stl, "--res", "96"], check=True, capture_output=True, timeout=300)
+            proc = subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "pipeline", "validator.py"), stl],
+                                  capture_output=True, text=True, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("PRINTABLE", proc.stdout)
+
+    def test_gallery_is_printable(self):
+        for name in ("gear", "rook", "mug", "spring", "gyroid", "rocket", "vase", "chain"):
+            with open(os.path.join(HERE, "gallery", name + ".glsl")) as f:
+                proc = self.run_check(f.read())
+            self.assertEqual(proc.returncode, 0, f"{name}: {proc.stdout}")
 
 if __name__ == "__main__":
     unittest.main()

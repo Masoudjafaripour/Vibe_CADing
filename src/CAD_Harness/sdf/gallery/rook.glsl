@@ -8,7 +8,9 @@ float sdf(vec3 p) {
     // Lathe profile, bottom to top
     float base = sdCylinder(p - vec3(0.0, -0.93, 0.0), 0.42, 0.07) - 0.02;
     float collar = sdTorus(p - vec3(0.0, -0.82, 0.0), 0.33, 0.06);
-    float body = sdRoundCone(p - vec3(0.0, -0.8, 0.0), 0.3, 0.2, 0.95);
+    // Starts inside the base, high enough that neither its rounded end nor the smooth
+    // blend bulges below the flat foot (the foot must sit flat on the plate)
+    float body = sdRoundCone(p - vec3(0.0, -0.6, 0.0), 0.26, 0.2, 0.75);
     float neck = sdTorus(p - vec3(0.0, 0.17, 0.0), 0.22, 0.045);
     float crown = sdCylinder(p - vec3(0.0, 0.36, 0.0), 0.3, 0.18) - 0.015;
 

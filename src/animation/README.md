@@ -188,6 +188,41 @@ The median acceleration over the clip is about 5 m/s². Latency is 90 ms per 96-
 - The procedural walk barely lifts its feet, so the original foot-sliding metric (any toe below 2 cm) is dominated by swing frames. "Stance sliding" scores only the planted toe.
 - Everything is trained on synthetic walks: three turn regimes at one speed range.
 
+## C++ motion engine and BVH export
+
+The motion geometry (forward kinematics, foot contact, two-bone IK foot locking,
+metrics) also runs in C++ ([`../geometry_engine`](../geometry_engine), module
+`vibecad_motion`), and clips export to **BVH**, the standard motion-capture format
+that Blender, Maya, MotionBuilder and Unity import.
+
+![C++ foot locking and speed-ups](assets/cpp_motion.png)
+
+```bash
+pip install ./src/geometry_engine         # once, from the repo root
+python export_bvh.py                      # all commands x procedural / AR / DDPM -> outputs/bvh/*.bvh
+python export_bvh.py --text "wave hello" --method ar
+python bench_motion.py --plot             # speed table + the figure above
+python -m unittest test_motion_fast.py    # C++ == NumPy on real clips; BVH round trip
+```
+
+`motion_fast.py` has the same function signatures as the NumPy code, so it is a
+drop-in: `from motion_fast import forward_kinematics, lock_feet, stance_sliding, write_bvh`.
+The NumPy versions stay as the reference; tests require the C++ results to match them
+to 1e-12 on walking, turning, waving and arm-raising clips.
+
+| Step (200 clips) | NumPy | C++ | Speed-up |
+|---|---|---|---|
+| forward kinematics | 299 ms | 15 ms | 19× |
+| foot locking (IK) | 352 ms | 1.0 ms | 341× |
+| stance sliding | 19 ms | 0.4 ms | 43× |
+| foot sliding | 6.2 ms | 0.3 ms | 24× |
+| jerk | 10 ms | 1.3 ms | 8× |
+
+Foot locking cuts planted-foot sliding from 0.47 to 0.15 m/s on the procedural and AR
+walks, but only from 0.45 to 0.38 m/s on the DDPM walk, whose jittery contacts release
+the lock more often. BVH stores joint rotations, so it holds the clip as generated;
+foot locking edits joint positions and is not part of the file.
+
 ## Next steps the structure supports
 
 - **VQ-VAE motion tokens:** encode clips into discrete tokens and swap the AR `head` for token logits, giving a PixelCNN/GPT-style sampler with real diversity.

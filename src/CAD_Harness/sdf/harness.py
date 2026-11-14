@@ -154,7 +154,8 @@ def resolve_output(output_path: str) -> str:
     return output_path
 
 
-def _generate(make_prompt, llm_fn, output_path: str, repairs: int, gif: bool, render_kwargs) -> HarnessResult:
+def _generate(make_prompt, llm_fn, output_path: str, repairs: int, gif: bool, render_kwargs,
+              extra_check=None) -> HarnessResult:
     output_path = resolve_output(output_path)
     stem = os.path.splitext(output_path)[0]
     image_path = stem + ".png"
@@ -167,6 +168,8 @@ def _generate(make_prompt, llm_fn, output_path: str, repairs: int, gif: bool, re
         raw = llm_fn(prompt)
         code = strip_version(extract_code(raw))
         ok, error = render_shader(code, image_path, gif_path=gif_path, **render_kwargs)
+        if ok and extra_check is not None:  # e.g. 3D-printability (demo.py --print-check)
+            ok, error = extra_check(code)
         history.append({"attempt": attempt, "prompt": prompt, "response": raw, "error": error})
         if ok:
             with open(output_path, "w") as f:
@@ -176,19 +179,19 @@ def _generate(make_prompt, llm_fn, output_path: str, repairs: int, gif: bool, re
 
 
 def run_harness(instruction: str, llm_fn, output_path: str = "out.glsl", repairs: int = 2,
-                gif: bool = False, **render_kwargs) -> HarnessResult:
+                gif: bool = False, extra_check=None, **render_kwargs) -> HarnessResult:
     """Text -> GLSL. On a compile / render error the LLM gets the error
     and its own code back, up to `repairs` more times."""
     return _generate(
         lambda error, prev: build_prompt(instruction, error, prev),
-        llm_fn, output_path, repairs, gif, render_kwargs,
+        llm_fn, output_path, repairs, gif, render_kwargs, extra_check,
     )
 
 
 def refine_harness(code: str, instruction: str, llm_fn, output_path: str, repairs: int = 2,
-                   gif: bool = False, **render_kwargs) -> HarnessResult:
+                   gif: bool = False, extra_check=None, **render_kwargs) -> HarnessResult:
     """Existing GLSL + edit instruction -> new GLSL, with the same repair loop."""
     return _generate(
         lambda error, prev: build_refine_prompt(code, instruction, error, prev),
-        llm_fn, output_path, repairs, gif, render_kwargs,
+        llm_fn, output_path, repairs, gif, render_kwargs, extra_check,
     )

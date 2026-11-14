@@ -11,7 +11,10 @@ float sdf(vec3 p) {
     float ball = sdSphere(p - c, 0.74);
     // One of the gyroid's two interwoven channel networks: a single connected
     // solid. (A thin gyroid *sheet* cut by the sphere left 19 loose fragments.)
-    float lattice = 0.06 - gyroid(p - c, 8.5);
+    // The network thins out over the last 0.12 units before the sphere's surface,
+    // so the cut never leaves small islands: the printability check found 6 loose
+    // pieces at 256^3 without this.
+    float lattice = (0.03 + 0.15 * smoothstep(-0.12, 0.0, ball)) - gyroid(p - c, 8.5);
     float shell = max(ball, lattice * 0.7);
     float ring = sdTorus(p - vec3(0.0, -0.92, 0.0), 0.32, 0.08);
     return opSmoothUnion(shell, ring, 0.04);

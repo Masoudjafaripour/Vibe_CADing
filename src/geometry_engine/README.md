@@ -46,8 +46,8 @@ real STL meshes, with the checks the engine reports:
 | Shape | Check | Why it matters |
 |---|---|---|
 | Gear | genus 7 | exactly the 6 lightening holes + the bore the prompt asked for |
-| Chain | 3 shells, genus 3 | three separate interlocked rings: prints in one go, links move |
-| Gyroid | 1 shell, genus 15 | one connected lattice; the first version had **19 loose fragments**, invisible in the render |
+| Chain | 3 shells, genus 3 | three separate interlocked rings; all touch the plate, so it prints in one go |
+| Gyroid | 1 shell, genus 10 | one connected lattice; earlier versions had **19**, then **6** loose fragments, invisible in the render |
 | Mug | 1 shell, genus 1 | the handle; an earlier version's coffee floated as a 2nd shell |
 
 Each mesh takes 30–40 ms in C++. Resolution matters for topology: at 128³ the
@@ -125,6 +125,27 @@ time: sample 37.9 ms | marching cubes 16.2 ms | checks 18.1 ms
 volume 0.5781 | area 4.1425 | watertight yes | oriented yes | shells 1 | genus 0
 ```
 
+## Printability analysis
+
+`include/vibecad/printability.hpp`: is a shape 3D-printable (FDM)?
+
+- **Wall thickness**: exact Euclidean distance transform of the voxelised shape
+  (Felzenszwalb–Huttenlocher, O(n)), thickness on the medial ridge, and *thin
+  material by volume* via a morphological opening (erode by the wall radius,
+  dilate back by r·√3 so the 90° corners of thick parts are kept). Works even when
+  the LLM's SDF is not a true distance; accurate to about one grid cell.
+- **Mesh checks** (Z-up, mm): parts floating above the build plate, overhang area
+  beyond 45°, flat bed contact vs. footprint, build volume, watertight.
+- **STL in**: `read_stl` (binary or ASCII) + `weld`, so any STL can be checked
+  (`src/pipeline/validator.py`).
+
+Verified on shapes with known answers (`tests/test_print.cpp`): a 0.30 slab measures
+0.300, a sphere of diameter 1.0 measures 0.98, a thin fin's volume share is found
+within 0.2%, a mushroom cap's overhang is within 3% of πr², and the CadQuery mounting
+plate's STEP export reads 771 mm² of bed contact (theory: 800 − 2 holes = 775).
+Used by [`check_print.py`](../CAD_Harness/sdf/README.md#3d-printability-check) and
+`demo.py --print-check`, which sends problems back to the LLM.
+
 ## Python module
 
 `pip install ./src/geometry_engine` builds `vibecad_geom` (pybind11; NumPy in, NumPy out):
@@ -138,6 +159,22 @@ g.write_stl(vertices, triangles, "shape.stl")
 
 Meshing releases the Python GIL, so it can run alongside other Python threads.
 
+## Motion module
+
+The same build also produces `vibecad_motion`, used by the text-to-motion demo
+([`../animation`](../animation/README.md#c-motion-engine-and-bvh-export)):
+forward kinematics, foot-contact detection, two-bone IK foot locking, motion
+metrics and BVH export. It matches the NumPy reference to 1e-12 and runs 8–341×
+faster (foot locking is the 341×: a per-frame loop in Python, a tight loop in C++).
+
+| File | Purpose |
+|---|---|
+| `include/vibecad/motion.hpp` | skeleton / clip types and API |
+| `src/motion.cpp` | FK, stance detection, IK foot locking, metrics |
+| `src/bvh.cpp` | BVH writer |
+| `src/motion_bindings.cpp` | pybind11 module `vibecad_motion` |
+| `tests/test_motion.cpp` | analytic FK and metric checks |
+
 ## How we know it's correct
 
 `tests/test_mc.cpp` checks:
@@ -145,6 +182,7 @@ Meshing releases the Python GIL, so it can run alongside other Python threads.
 - genus: sphere 0, torus 1; two separate spheres give 2 shells
 - ~20,000 random grids that hit all 256 cube cases, all closed and consistently oriented
 - `tests/test_bindings.py`: the Python module (volume, genus, STL size, bad input)
+- `tests/test_print.cpp`: wall thickness, opening, overhang area, floating parts, bed contact, STL round trip
 - `../CAD_Harness/sdf/test_harness.py`: GPU sampling matches the exact SDF, `to_stl.py` and `demo.py --stl`
 
 ## Files
@@ -161,6 +199,9 @@ Meshing releases the Python GIL, so it can run alongside other Python threads.
 | `src/bindings.cpp` | pybind11 module `vibecad_geom` |
 | `pyproject.toml` | `pip install` build (scikit-build-core) |
 | `../CAD_Harness/sdf/to_stl.py` | GLSL → GPU grid → this engine → STL |
+| `include/vibecad/printability.hpp`, `src/printability.cpp` | wall thickness (EDT + opening), overhangs, floating parts, bed contact |
+| `src/stl_read.cpp` | STL reader + vertex welding |
+| `tests/test_print.cpp` | printability checks with known answers |
 | `bench/mc_python.py` | pure-Python twin for speed comparison |
 | `bench/render_demo.py` | renders the demo images in `assets/` (`glsl` / `gallery` args for the LLM-shape figures) |
 

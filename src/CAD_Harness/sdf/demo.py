@@ -6,6 +6,7 @@
     python demo.py --refine results/dragon.glsl --instruction "make the wings larger"
     python demo.py --prompt "a stylized dragon" --track    # log the run to MLflow (see tracking.py)
     python demo.py --example duck --stl                    # also export a 3D-printable STL (see to_stl.py)
+    python demo.py --prompt "a mug" --print-check          # repair until 3D-printable (see check_print.py)
 """
 import argparse
 import contextlib
@@ -14,6 +15,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import sys
 
 from harness import RESULTS_DIR, RenderEnvironmentError, refine_harness, render_shader, run_harness
@@ -37,6 +39,28 @@ def next_version(path: str, out_dir: str) -> str:
     while os.path.exists(os.path.join(out_dir, f"{stem}_v{n}.glsl")):
         n += 1
     return f"{stem}_v{n}"
+
+
+def print_check(code: str):
+    """run_harness extra_check: (ok, LLM-ready feedback). Runs check_print.py in a
+    subprocess, like rendering, since the GLSL is untrusted."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "shape.glsl")
+        with open(path, "w") as f:
+            f.write(code)
+        try:
+            proc = subprocess.run([sys.executable, os.path.join(HERE, "check_print.py"), path, "--feedback"],
+                                  capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            return False, "The 3D-printability check timed out."
+    if proc.returncode == 4:
+        raise SystemExit(proc.stderr.strip())
+    return proc.returncode == 0, proc.stderr.strip()
+
+
+def print_check_report(glsl_path: str, args):
+    """Prints the printability report for an existing shape (no repair)."""
+    subprocess.run([sys.executable, os.path.join(HERE, "check_print.py"), glsl_path])
 
 
 def export_stl(glsl_path: str, args):
@@ -95,6 +119,9 @@ def main():
     parser.add_argument("--stl", action="store_true",
                         help="also export a watertight <name>.stl (needs: pip install ./src/geometry_engine)")
     parser.add_argument("--stl-res", type=int, default=128, help="STL grid cells per axis, 16-512 (default 128)")
+    parser.add_argument("--print-check", action="store_true",
+                        help="require a 3D-printable shape: problems go back to the LLM for repair "
+                             "(needs: pip install ./src/geometry_engine)")
     args = parser.parse_args()
 
     if args.refine and not args.instruction:
@@ -114,6 +141,8 @@ def main():
             gif_path = os.path.join(args.out_dir, name + ".gif") if args.gif else None
             tracker = start_tracking(args, "example" if args.example else "render", name)
             ok, error = render_shader(code, png_path, gif_path=gif_path, **render_kwargs)
+            if ok and args.print_check:
+                print_check_report(src, args)
             if not ok:
                 if tracker:
                     tracker.finish(False, error=error, code=code)
@@ -142,7 +171,8 @@ def main():
                 tracker.log_llm(backend, args.model)
                 llm_fn = tracker.wrap_llm(llm_fn, backend, args.model)
             with tracker.root_span({"prompt": args.prompt}) if tracker else contextlib.nullcontext():
-                result = run_harness(args.prompt, llm_fn, glsl_path, args.retries, args.gif, **render_kwargs)
+                result = run_harness(args.prompt, llm_fn, glsl_path, args.retries, args.gif,
+                                     extra_check=print_check if args.print_check else None, **render_kwargs)
             meta = {"mode": "generate", "prompt": args.prompt}
         else:
             with open(args.refine) as f:
@@ -156,7 +186,7 @@ def main():
             with tracker.root_span({"source": args.refine, "instruction": args.instruction}) if tracker \
                     else contextlib.nullcontext():
                 result = refine_harness(source_code, args.instruction, llm_fn, glsl_path, args.retries, args.gif,
-                                        **render_kwargs)
+                                        extra_check=print_check if args.print_check else None, **render_kwargs)
             meta = {"mode": "refine", "source": args.refine, "instruction": args.instruction}
     except RenderEnvironmentError as e:
         print(f"Cannot render on this machine: {e}", file=sys.stderr)

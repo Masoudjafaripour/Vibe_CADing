@@ -12,10 +12,13 @@ const float L = 0.2, R = 0.2, r = 0.07, STEP = 0.65;
 // Distances to the outer links (x) and the middle link (y).
 vec2 links(vec3 p) {
     // Lie along the box diagonal (more room), resting on the floor
-    vec3 c = rotY(p - vec3(0.0, -1.0 + R + r, 0.0), -0.75);
-    float outer = min(link(c + vec3(STEP, 0.0, 0.0), L, R, r), link(c - vec3(STEP, 0.0, 0.0), L, R, r));
-    // Middle link turned 90 degrees about X so it threads through its neighbours
-    float middle = link(rotX(c, 1.5708), L, R, r);
+    // Links tilted +-45 degrees about the chain axis: still interlocked (90 degrees
+    // apart), and every link touches the build plate, so none prints in mid-air.
+    const float lift = (R + r) * 0.70710678;
+    vec3 c = rotY(p - vec3(0.0, -1.0 + lift, 0.0), -0.75);
+    float outer = min(link(rotX(c + vec3(STEP, 0.0, 0.0), 0.785398), L, R, r),
+                      link(rotX(c - vec3(STEP, 0.0, 0.0), 0.785398), L, R, r));
+    float middle = link(rotX(c, -0.785398), L, R, r);
     return vec2(outer, middle);
 }
 

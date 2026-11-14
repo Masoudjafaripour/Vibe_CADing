@@ -9,12 +9,18 @@ endif()
 
 find_package(OpenMP)  # optional: parallel SDF sampling
 
-add_library(vibecad_geometry src/marching_cubes.cpp src/mesh_stats.cpp src/stl.cpp)
+add_library(vibecad_geometry src/marching_cubes.cpp src/mesh_stats.cpp src/stl.cpp
+            src/printability.cpp src/stl_read.cpp)
 target_include_directories(vibecad_geometry PUBLIC include)
 target_compile_options(vibecad_geometry PUBLIC $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(vibecad_geometry PUBLIC OpenMP::OpenMP_CXX)
 endif()
+
+# Skeletal motion: FK, foot locking (IK), metrics, BVH export
+add_library(vibecad_motion_core src/motion.cpp src/bvh.cpp)
+target_include_directories(vibecad_motion_core PUBLIC include)
+target_compile_options(vibecad_motion_core PUBLIC $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>)
 
 # Python module (built by `pip install .` via scikit-build-core, or -DVIBECAD_PYTHON=ON)
 if(SKBUILD)  # set by scikit-build-core (to a version number, so normalise to ON/OFF)
@@ -30,6 +36,11 @@ if(VIBECAD_PYTHON)
   pybind11_add_module(vibecad_geom src/bindings.cpp)
   target_link_libraries(vibecad_geom PRIVATE vibecad_geometry)
   install(TARGETS vibecad_geom LIBRARY DESTINATION .)
+
+  set_target_properties(vibecad_motion_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  pybind11_add_module(vibecad_motion src/motion_bindings.cpp)
+  target_link_libraries(vibecad_motion PRIVATE vibecad_motion_core)
+  install(TARGETS vibecad_motion LIBRARY DESTINATION .)
 endif()
 if(SKBUILD)
   return()  # pip only needs the module
@@ -42,3 +53,9 @@ enable_testing()
 add_executable(test_mc tests/test_mc.cpp)
 target_link_libraries(test_mc PRIVATE vibecad_geometry)
 add_test(NAME marching_cubes COMMAND test_mc)
+add_executable(test_motion tests/test_motion.cpp)
+target_link_libraries(test_motion PRIVATE vibecad_motion_core)
+add_test(NAME motion COMMAND test_motion)
+add_executable(test_print tests/test_print.cpp)
+target_link_libraries(test_print PRIVATE vibecad_geometry)
+add_test(NAME printability COMMAND test_print)
