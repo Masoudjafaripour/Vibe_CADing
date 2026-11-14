@@ -34,6 +34,11 @@ shows the current results.
   pip install cadquery
   python website/scripts/step_to_mesh.py src/CAD_Harness/cadquery/plate.step website/public/models/plate.json
   ```
+- **Text-to-CAD in 3D:** `src/components/Models3D.astro` shows the 8 gallery shapes
+  as coloured glTF models (three.js `GLTFLoader`), with their prompt, mesh stats and
+  printability verdict from `src/CAD_Harness/sdf/assets/gallery_3d/index.json`.
+  `scripts/sync-assets.mjs` copies the `.glb` files; regenerate them with
+  `python gallery.py --glb --publish` in `src/CAD_Harness/sdf`.
 
 ## Content
 

@@ -1,6 +1,6 @@
 // Copies existing renders from the repo into public/media so the site
 // always shows the repo's current results. Runs before dev and build.
-import { copyFileSync, mkdirSync, existsSync } from "node:fs";
+import { copyFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,3 +33,14 @@ for (const [name, src] of Object.entries(files)) {
 }
 if (missing) process.exit(1);
 console.log(`sync-assets: copied ${Object.keys(files).length} files to public/media`);
+
+// Text-to-CAD gallery as coloured 3D models (python gallery.py --glb --publish)
+const models = join(repo, "src/CAD_Harness/sdf/assets/gallery_3d");
+if (!existsSync(models)) {
+  console.error("sync-assets: missing src/CAD_Harness/sdf/assets/gallery_3d");
+  process.exit(1);
+}
+mkdirSync(join(out, "gallery_3d"), { recursive: true });
+const glbs = readdirSync(models).filter((f) => f.endsWith(".glb"));
+for (const f of glbs) copyFileSync(join(models, f), join(out, "gallery_3d", f));
+console.log(`sync-assets: copied ${glbs.length} gallery models to public/media/gallery_3d`);

@@ -7,6 +7,7 @@ and the results are combined into a captioned contact sheet and an animated grid
     python gallery.py                                   # replay the recorded LLM answers in gallery/
     python gallery.py --backend openai --model gpt-4o   # ask a live LLM the same prompts
     python gallery.py --publish                         # also copy the sheet + GIF into assets/
+    python gallery.py --glb --publish                   # + coloured 3D models and printability for the website
 
 Each gallery/<name>.glsl starts with  // Prompt: "..."  and is the recorded LLM
 answer to that prompt; replay feeds it back through run_harness exactly as a
@@ -95,6 +96,40 @@ def animated_grid(rows, path, tile=220, cols=4, frames=36):
     out[0].save(path, save_all=True, append_images=out[1:], duration=70, loop=0, optimize=True)
 
 
+def export_3d(glsl, row, args):
+    """Simplified coloured .glb + printability verdict for one shape (both in subprocesses)."""
+    stem = os.path.splitext(glsl)[0]
+    subprocess.run([sys.executable, os.path.join(HERE, "to_stl.py"), glsl, stem + ".light.stl", "--res", str(args.res),
+                    "--simplify", str(args.glb_triangles), "--glb", stem + ".glb"],
+                   check=True, capture_output=True, timeout=300)
+    proc = subprocess.run([sys.executable, os.path.join(HERE, "check_print.py"), glsl, "--json", stem + ".print.json"],
+                          capture_output=True, text=True, timeout=300)
+    if proc.returncode in (0, 2):
+        with open(stem + ".print.json") as f:
+            p = json.load(f)
+        row["print"] = {"verdict": p["verdict"], "issues": [i["message"] for i in p["issues"]],
+                        "overhang_pct": round(100 * p["overhang_fraction"], 1), "wall_mm": round(p["wall_mm"]["p05"], 1)}
+
+
+def publish_3d(rows, out_dir):
+    """assets/gallery_3d/: <name>.glb + index.json (prompt, mesh stats, printability), read by the website."""
+    dest = os.path.join(ASSETS_DIR, "gallery_3d")
+    os.makedirs(dest, exist_ok=True)
+    index = []
+    for r in rows:
+        glb = os.path.join(out_dir, r["name"] + ".glb")
+        if not (r["ok"] and os.path.exists(glb)):
+            continue
+        shutil.copyfile(glb, os.path.join(dest, r["name"] + ".glb"))
+        s = r.get("stats", {})
+        index.append({"name": r["name"], "prompt": r["prompt"], "author": r["author"],
+                      "triangles_full": s.get("triangles"), "shells": s.get("components"), "genus": s.get("genus"),
+                      "size_mm": s.get("size"), "watertight": s.get("watertight"), "print": r.get("print")})
+    with open(os.path.join(dest, "index.json"), "w") as f:
+        json.dump(index, f, indent=2)
+    print(f"Published {len(index)} models to {dest}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--backend", choices=("replay",) + BACKENDS, default="replay")
@@ -103,6 +138,9 @@ def main():
     parser.add_argument("--res", type=int, default=160, help="STL grid cells per axis (default 160)")
     parser.add_argument("--out-dir", help="default: results/gallery/<backend>")
     parser.add_argument("--publish", action="store_true", help="copy gallery.png / gallery.gif into assets/")
+    parser.add_argument("--glb", action="store_true",
+                        help="also export a simplified, coloured .glb + printability verdict per shape")
+    parser.add_argument("--glb-triangles", type=int, default=12000, help="triangles per .glb (default 12000)")
     args = parser.parse_args()
 
     items = [it for it in load_prompts() if not args.only or it["name"] in args.only]
@@ -127,6 +165,8 @@ def main():
                     row["stats"] = json.load(f)
             else:
                 print(f"  STL failed for {it['name']}: {proc.stderr.strip()[:200]}", file=sys.stderr)
+        if result.success and args.glb:
+            export_3d(glsl, row, args)
         status = stats_line(row["stats"]) if row.get("stats") else (result.error or "no STL")[:120]
         print(f"{it['name']:8s} {'ok ' if result.success else 'FAIL'} (attempt {result.attempts})  "
               + status.replace("\n", " · "))
@@ -144,6 +184,8 @@ def main():
     if args.publish:
         for src in (sheet, anim):
             shutil.copyfile(src, os.path.join(ASSETS_DIR, os.path.basename(src)))
+        if args.glb:
+            publish_3d(rows, out_dir)
         print(f"Published to {ASSETS_DIR}")
 
 

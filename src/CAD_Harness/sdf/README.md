@@ -221,6 +221,11 @@ python to_stl.py results/dragon.glsl dragon.stl --res 192
 (watertight, shells, genus) and written Z-up in millimetres. Increase `--stl-res`
 / `--res` for thin parts (default 128). Colors are not exported; STL has none.
 
+Lighter and coloured: `--simplify 15000` reduces the mesh (keeping holes and separate
+parts), and `--glb shape.glb` also writes a glTF with the shape's `sdf_color()` colours,
+sampled on the GPU. `python gallery.py --glb --publish` exports all 8 gallery shapes
+this way, with their printability verdicts, for the website's 3D section.
+
 ## Status and limitations
 
 - **Tested end to end:** GPT-4o generate + refine via the OpenAI API

@@ -1,0 +1,177 @@
+[
+  {
+    "name": "gear",
+    "prompt": "A spur gear with 16 teeth, a raised hub with a keyed bore, and six round lightening holes",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 64248,
+    "shells": 1,
+    "genus": 7,
+    "size_mm": [
+      86.0,
+      86.0,
+      13.0
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable",
+      "issues": [],
+      "overhang_pct": 0.0,
+      "wall_mm": 5.2
+    }
+  },
+  {
+    "name": "rook",
+    "prompt": "A chess rook: wide round base, tapered body, and a hollow crenellated tower top",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 64080,
+    "shells": 1,
+    "genus": 0,
+    "size_mm": [
+      44.0,
+      44.0,
+      78.75
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "466 mm^2 (4% of the surface) overhangs more than 45 degrees and needs support."
+      ],
+      "overhang_pct": 4.0,
+      "wall_mm": 5.2
+    }
+  },
+  {
+    "name": "mug",
+    "prompt": "A ceramic coffee mug with a curved handle, filled with coffee",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 65768,
+    "shells": 1,
+    "genus": 1,
+    "size_mm": [
+      60.75,
+      48.0,
+      53.0
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "54 mm^2 (0% of the surface) overhangs more than 45 degrees and needs support."
+      ],
+      "overhang_pct": 0.4,
+      "wall_mm": 4.0
+    }
+  },
+  {
+    "name": "spring",
+    "prompt": "A compression spring: 5 coils of round wire with flat ground ends",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 102088,
+    "shells": 1,
+    "genus": 0,
+    "size_mm": [
+      49.49,
+      49.49,
+      86.0
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "4014 mm^2 (24% of the surface) overhangs more than 45 degrees and needs support.",
+        "0.2% of the material is thinner than 1.0 mm; it may break or not print."
+      ],
+      "overhang_pct": 23.8,
+      "wall_mm": 0.6
+    }
+  },
+  {
+    "name": "gyroid",
+    "prompt": "A lightweight, 3D-printable gyroid lattice sphere sitting on a solid ring base",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 132620,
+    "shells": 1,
+    "genus": 10,
+    "size_mm": [
+      69.32,
+      69.32,
+      73.11
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "2497 mm^2 (12% of the surface) overhangs more than 45 degrees and needs support."
+      ],
+      "overhang_pct": 12.2,
+      "wall_mm": 6.8
+    }
+  },
+  {
+    "name": "rocket",
+    "prompt": "A retro rocket standing on three swept fins, with a round porthole and a nozzle",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 41272,
+    "shells": 1,
+    "genus": 0,
+    "size_mm": [
+      37.67,
+      43.28,
+      96.04
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "227 mm^2 (3% of the surface) overhangs more than 45 degrees and needs support.",
+        "Only 1 mm^2 (0.1% of its footprint) rests flat on the build plate; it may tip over or detach."
+      ],
+      "overhang_pct": 3.2,
+      "wall_mm": 1.4
+    }
+  },
+  {
+    "name": "vase",
+    "prompt": "A twisted vase with eight flowing ridges, a curvy profile, and an open top",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 158768,
+    "shells": 1,
+    "genus": 0,
+    "size_mm": [
+      52.91,
+      52.91,
+      92.5
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable",
+      "issues": [],
+      "overhang_pct": 0.0,
+      "wall_mm": 2.9
+    }
+  },
+  {
+    "name": "chain",
+    "prompt": "Three interlocked chain links that can be 3D-printed in one piece without supports",
+    "author": "Claude (Opus 5.5)",
+    "triangles_full": 43804,
+    "shells": 3,
+    "genus": 3,
+    "size_mm": [
+      86.71,
+      82.04,
+      21.14
+    ],
+    "watertight": true,
+    "print": {
+      "verdict": "printable with supports",
+      "issues": [
+        "1095 mm^2 (16% of the surface) overhangs more than 45 degrees and needs support.",
+        "Only 150 mm^2 (2.1% of its footprint) rests flat on the build plate; it may tip over or detach."
+      ],
+      "overhang_pct": 16.2,
+      "wall_mm": 6.0
+    }
+  }
+]

@@ -43,6 +43,38 @@ class TestBindings(unittest.TestCase):
         with self.assertRaises(ValueError):
             g.analyze(np.zeros((3, 3), np.float32), np.array([[0, 1, 7]], np.uint32))
 
+    def test_simplify_keeps_topology_and_volume(self):
+        v, t = g.marching_cubes(grid(lambda x, y, z: np.hypot(np.hypot(x, z) - 0.5, y) - 0.2, m=97))
+        before = g.analyze(v, t)
+        v2, t2, rep = g.simplify(v, t, 1500)
+        after = g.analyze(v2, t2)
+        self.assertLessEqual(len(t2), 1502)
+        self.assertEqual(rep["triangles_after"], len(t2))
+        self.assertTrue(after["watertight"] and after["oriented"])
+        self.assertEqual((after["genus"], after["components"]), (before["genus"], before["components"]))
+        self.assertLess(abs(after["volume"] - before["volume"]) / before["volume"], 0.03)
+
+    def test_write_glb(self):
+        import json, struct
+        v, t = g.marching_cubes(grid(lambda x, y, z: np.sqrt(x * x + y * y + z * z) - 0.6, m=33))
+        colors = np.tile(np.float32([1.0, 0.5, 0.0]), (len(v), 1))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "s.glb")
+            g.write_glb(v, t, path, colors, "ball")
+            with open(path, "rb") as f:
+                data = f.read()
+        magic, version, total, json_len, json_type = struct.unpack("<5I", data[:20])
+        doc = json.loads(data[20:20 + json_len])
+        self.assertEqual((magic, version, total, json_type), (0x46546C67, 2, len(data), 0x4E4F534A))
+        prim = doc["meshes"][0]["primitives"][0]
+        self.assertEqual(set(prim["attributes"]), {"POSITION", "NORMAL", "COLOR_0"})
+        self.assertEqual(doc["accessors"][prim["indices"]]["count"], t.size)
+        self.assertEqual(doc["accessors"][prim["attributes"]["POSITION"]]["count"], len(v))
+        np.testing.assert_allclose(doc["accessors"][0]["max"], v.max(0), atol=1e-6)
+        col = doc["bufferViews"][doc["accessors"][prim["attributes"]["COLOR_0"]]["bufferView"]]
+        rgba = np.frombuffer(data[20 + json_len + 8 + col["byteOffset"]:][:col["byteLength"]], np.uint8).reshape(-1, 4)
+        np.testing.assert_array_equal(rgba[0], [255, 128, 0, 255])
+
 
 if __name__ == "__main__":
     unittest.main()

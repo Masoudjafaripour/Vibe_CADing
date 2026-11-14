@@ -489,5 +489,34 @@ class TestPrintCheck(unittest.TestCase):
                 proc = self.run_check(f.read())
             self.assertEqual(proc.returncode, 0, f"{name}: {proc.stdout}")
 
+@unittest.skipUnless(HAS_GL and HAS_GEOM, "needs OpenGL 3.3 and vibecad_geom")
+class TestMeshExport(unittest.TestCase):
+    def test_gpu_colors_match_sdf_color(self):
+        from to_stl import sample_colors
+        with open(os.path.join(HERE, "gallery", "gear.glsl")) as f:
+            code = f.read()
+        rgb = sample_colors(code, np.array([[0.1, -0.8, 0.0], [0.6, -0.8, 0.0]], np.float32))  # hub, rim
+        np.testing.assert_allclose(rgb[0], [0.62, 0.64, 0.68], atol=1e-6)
+        np.testing.assert_allclose(rgb[1], [0.78, 0.6, 0.25], atol=1e-6)
+        default = sample_colors(SPHERE, np.zeros((1, 3), np.float32))  # no sdf_color(): render's default
+        np.testing.assert_allclose(default[0], [0.85, 0.55, 0.3], atol=1e-6)
+
+    def test_to_stl_simplify_and_glb(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stl, glb, js = (os.path.join(tmp, n) for n in ("g.stl", "g.glb", "g.json"))
+            proc = subprocess.run([sys.executable, os.path.join(HERE, "to_stl.py"), os.path.join(HERE, "gallery", "gear.glsl"),
+                                   stl, "--res", "96", "--simplify", "5000", "--glb", glb, "--json", js],
+                                  capture_output=True, text=True, timeout=300)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("simplified from", proc.stdout)
+            with open(js) as f:
+                st = json.load(f)
+            with open(glb, "rb") as f:
+                head = f.read(4)
+        self.assertLessEqual(st["triangles"], 5002)
+        self.assertTrue(st["watertight"])
+        self.assertEqual((st["components"], st["genus"]), (1, 7))  # simplification kept all 7 holes
+        self.assertEqual(head, b"glTF")
+
 if __name__ == "__main__":
     unittest.main()

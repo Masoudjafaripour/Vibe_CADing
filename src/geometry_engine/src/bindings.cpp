@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "vibecad/mesh.hpp"
+#include "vibecad/mesh_ops.hpp"
 #include "vibecad/printability.hpp"
 
 namespace py = pybind11;
@@ -120,6 +121,60 @@ PYBIND11_MODULE(vibecad_geom, m) {
         "read_stl",
         [](const std::string& path) { return from_mesh(read_stl(path)); }, "path"_a,
         "Reads a binary or ASCII STL as a welded mesh -> (vertices (N, 3), triangles (M, 3)).");
+
+    m.def(
+        "simplify",
+        [](const FloatArray& vertices, const IndexArray& triangles, size_t target_triangles) {
+            Mesh mesh = to_mesh(vertices, triangles);
+            SimplifyReport r;
+            {
+                py::gil_scoped_release release;
+                r = simplify(mesh, target_triangles);
+            }
+            return py::make_tuple(from_mesh(mesh)[0], from_mesh(mesh)[1],
+                                  py::dict("triangles_before"_a = r.triangles_before, "triangles_after"_a = r.triangles_after,
+                                           "rejected_topology"_a = r.rejected_topology, "rejected_flip"_a = r.rejected_flip));
+        },
+        "vertices"_a, "triangles"_a, "target_triangles"_a,
+        "QEM edge-collapse simplification that keeps a closed mesh closed (same genus and shells).");
+
+    m.def(
+        "smooth_taubin",
+        [](const FloatArray& vertices, const IndexArray& triangles, int iterations, float lambda_, float mu) {
+            Mesh mesh = to_mesh(vertices, triangles);
+            smooth_taubin(mesh, iterations, lambda_, mu);
+            return from_mesh(mesh)[0];
+        },
+        "vertices"_a, "triangles"_a, "iterations"_a = 10, "lambda_"_a = 0.5f, "mu"_a = -0.53f,
+        "Taubin smoothing (denoising without shrinking); returns new vertices.");
+
+    m.def(
+        "vertex_normals",
+        [](const FloatArray& vertices, const IndexArray& triangles) {
+            const std::vector<Vec3> n = vertex_normals(to_mesh(vertices, triangles));
+            FloatArray out({py::ssize_t(n.size()), py::ssize_t(3)});
+            std::memcpy(out.mutable_data(), n.data(), out.nbytes());
+            return out;
+        },
+        "vertices"_a, "triangles"_a);
+
+    m.def(
+        "write_glb",
+        [](const FloatArray& vertices, const IndexArray& triangles, const std::string& path, py::object colors,
+           const std::string& name) {
+            const Mesh mesh = to_mesh(vertices, triangles);
+            std::vector<Vec3> c;
+            if (!colors.is_none()) {
+                const FloatArray ca = colors.cast<FloatArray>();
+                if (ca.ndim() != 2 || ca.shape(1) != 3 || size_t(ca.shape(0)) != mesh.vertices.size())
+                    throw py::value_error("colors must have shape (N, 3), one per vertex");
+                c.resize(mesh.vertices.size());
+                std::memcpy(c.data(), ca.data(), ca.nbytes());
+            }
+            write_glb(mesh, path, c, name);
+        },
+        "vertices"_a, "triangles"_a, "path"_a, "colors"_a = py::none(), "name"_a = "mesh",
+        "Binary glTF 2.0 (.glb) with normals and optional per-vertex RGB colours (0-1).");
 
     m.def(
         "write_stl",

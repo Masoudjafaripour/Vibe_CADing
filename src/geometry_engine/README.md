@@ -146,6 +146,28 @@ plate's STEP export reads 771 mm² of bed contact (theory: 800 − 2 holes = 775
 Used by [`check_print.py`](../CAD_Harness/sdf/README.md#3d-printability-check) and
 `demo.py --print-check`, which sends problems back to the LLM.
 
+## Mesh processing and glTF
+
+`include/vibecad/mesh_ops.hpp`:
+
+- **Simplification**: quadric error metric edge collapse (Garland & Heckbert). Collapses
+  that would break the *link condition* or flip a face are refused, so a closed mesh
+  stays closed with the same genus and number of parts. A sphere goes 55,640 → 5,564
+  triangles with volume within 1% and every vertex within 1% of the true surface; a
+  torus keeps its hole at 600 triangles; the gear keeps all 7 holes.
+- **Taubin smoothing**: a denoiser that doesn't shrink. On a noisy sphere it cuts
+  face-normal error from 22° to 2.8° with < 0.5% volume change. Marching cubes on an
+  exact SDF is already accurate (≈1°), and smoothing it makes things slightly worse, so
+  it is off by default.
+- **glTF (.glb) export**: positions, normals and per-vertex colours, readable by
+  three.js, Blender, Unity and Godot. `to_stl.py --glb` samples the colours from the
+  shape's own `sdf_color()` on the GPU.
+
+```bash
+python to_stl.py gallery/vase.glsl vase.stl --simplify 15000 --glb vase.glb   # 159k → 15k triangles, 7.9 MB → 0.75 MB
+python gallery.py --glb --publish                                             # 8 coloured models for the website
+```
+
 ## Python module
 
 `pip install ./src/geometry_engine` builds `vibecad_geom` (pybind11; NumPy in, NumPy out):
@@ -183,6 +205,7 @@ faster (foot locking is the 341×: a per-frame loop in Python, a tight loop in C
 - ~20,000 random grids that hit all 256 cube cases, all closed and consistently oriented
 - `tests/test_bindings.py`: the Python module (volume, genus, STL size, bad input)
 - `tests/test_print.cpp`: wall thickness, opening, overhang area, floating parts, bed contact, STL round trip
+- `tests/test_mesh_ops.cpp`: simplified meshes keep volume, surface, genus and parts; Taubin denoises without shrinking; valid glTF
 - `../CAD_Harness/sdf/test_harness.py`: GPU sampling matches the exact SDF, `to_stl.py` and `demo.py --stl`
 
 ## Files
@@ -201,6 +224,8 @@ faster (foot locking is the 341×: a per-frame loop in Python, a tight loop in C
 | `../CAD_Harness/sdf/to_stl.py` | GLSL → GPU grid → this engine → STL |
 | `include/vibecad/printability.hpp`, `src/printability.cpp` | wall thickness (EDT + opening), overhangs, floating parts, bed contact |
 | `src/stl_read.cpp` | STL reader + vertex welding |
+| `include/vibecad/mesh_ops.hpp`, `src/simplify.cpp`, `src/mesh_ops.cpp` | QEM simplification, Taubin smoothing, normals, glTF writer |
+| `tests/test_mesh_ops.cpp` | simplification keeps shape and topology; smoothing; glTF structure |
 | `tests/test_print.cpp` | printability checks with known answers |
 | `bench/mc_python.py` | pure-Python twin for speed comparison |
 | `bench/render_demo.py` | renders the demo images in `assets/` (`glsl` / `gallery` args for the LLM-shape figures) |
@@ -209,5 +234,5 @@ faster (foot locking is the 341×: a per-frame loop in Python, a tight loop in C
 
 - ~~pybind11 bindings so `demo.py` can turn LLM shapes into STL files~~ done
 - ~~sample the GLSL `sdf()` on the GPU and pass the grid to C++~~ done
-- mesh smoothing, simplification, OBJ export
+- ~~mesh smoothing, simplification~~ done; glTF export done (OBJ still open)
 - use shells / genus as automatic feedback to the LLM ("your legs are not attached")
