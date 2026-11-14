@@ -41,11 +41,22 @@ export function messagesFor(engine: Engine, request: string): Msg[] {
   return msgs;
 }
 
+// WebLLM's attention kernels bind 10 storage buffers per shader; some browsers and GPUs allow fewer.
+const NEEDED_STORAGE_BUFFERS = 10;
+
+type Adapter = { features: Set<string>; limits: { maxStorageBuffersPerShaderStage: number } };
 export function webgpuStatus(): Promise<{ ok: boolean; f16: boolean; reason?: string }> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(o?: object): Promise<{ features: Set<string> } | null> } }).gpu;
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(o?: object): Promise<Adapter | null> } }).gpu;
   if (!gpu) return Promise.resolve({ ok: false, f16: false, reason: "This browser has no WebGPU (try desktop Chrome or Edge)." });
-  return gpu.requestAdapter({ powerPreference: "high-performance" }).then((a) =>
-    a ? { ok: true, f16: a.features.has("shader-f16") } : { ok: false, f16: false, reason: "No WebGPU adapter was found." });
+  return gpu.requestAdapter({ powerPreference: "high-performance" }).then((a) => {
+    if (!a) return { ok: false, f16: false, reason: "No WebGPU adapter was found." };
+    const buffers = a.limits.maxStorageBuffersPerShaderStage;
+    if (buffers < NEEDED_STORAGE_BUFFERS) {
+      return { ok: false, f16: false, reason: `This browser's WebGPU allows ${buffers} storage buffers per shader; ` +
+        `the in-browser models need ${NEEDED_STORAGE_BUFFERS} (desktop Chrome or Edge usually works).` };
+    }
+    return { ok: true, f16: a.features.has("shader-f16") };
+  }).catch(() => ({ ok: false, f16: false, reason: "WebGPU could not be started." }));
 }
 
 // ---- LLM (WebLLM in a worker) ----
