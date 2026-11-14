@@ -7,16 +7,16 @@ const maxLog = Math.log10(Math.max(...speedups.map((s) => s.x)));
 
 <section id="engine" class="grid-paper border-b border-line">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-    <SectionHead fig="07 — ENGINE" title="The heavy lifting" dim="is C++.">
-      Python orchestrates the LLM; the per-voxel and per-frame loops run in a C++17 engine, exposed to Python through
-      pybind11. Every C++ result is tested against the original Python or against exact formulas.
+    <SectionHead fig="ENGINE" title="A C++ engine for the heavy loops">
+      Python orchestrates the language model; the per-voxel and per-frame loops run in a C++17 engine exposed through
+      pybind11. Every C++ result is tested against the original Python implementation or against exact formulas.
     </SectionHead>
 
     <div class="mt-10 border-t border-line-strong">
       {speedups.map((s) => (
         <div class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b border-line py-4 sm:grid-cols-[260px_1fr_160px]">
           <div>
-            <p class="display text-lg font-semibold uppercase">{s.step}</p>
+            <p class="display text-lg font-semibold">{s.step}</p>
             <p class="font-mono text-[11px] text-faint">{s.area}</p>
           </div>
           <p class="display text-right text-4xl font-semibold text-signal sm:order-last">{s.x}×</p>

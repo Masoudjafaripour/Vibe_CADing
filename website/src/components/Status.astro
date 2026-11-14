@@ -12,7 +12,7 @@ const style: Record<Status, [string, string]> = {
 
 <section id="status" class="border-b border-line">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-    <SectionHead fig="09 — STATUS" title="What exists," dim="and what is planned.">
+    <SectionHead fig="STATUS" title="Implementation status">
       The long-term goal is an agentic loop (Planner → Retriever → Generator → Critic) combining code generation,
       learned 3D generators, retrieval over CAD libraries and manufacturability feedback.
     </SectionHead>
@@ -21,7 +21,7 @@ const style: Record<Status, [string, string]> = {
         <li class="grid grid-cols-[90px_1fr] gap-3 bg-bg p-4">
           <span class:list={["font-mono text-[10px] tracking-[0.14em] uppercase", style[m.status][1]]}>● {style[m.status][0]}</span>
           <div class="min-w-0">
-            <a href={treeUrl(m.path)} class="display text-base font-semibold uppercase hover:text-signal">{m.name}</a>
+            <a href={treeUrl(m.path)} class="display text-base font-semibold hover:text-signal">{m.name}</a>
             <p class="mt-0.5 text-[13px] text-muted">{m.what}</p>
           </div>
         </li>

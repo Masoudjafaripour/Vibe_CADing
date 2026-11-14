@@ -2,12 +2,12 @@
 import { repoUrl } from "../data/site";
 
 const links = [
-  ["01", "Pipeline", "#pipeline"],
-  ["03", "Live", "#interactive"],
-  ["04", "Printability", "#printability"],
-  ["06", "Motion", "#motion"],
-  ["07", "Engine", "#engine"],
-  ["08", "Results", "#results"],
+  ["Method", "#pipeline"],
+  ["3D models", "#explore"],
+  ["Printability", "#printability"],
+  ["Motion", "#motion"],
+  ["Engine", "#engine"],
+  ["Results", "#results"],
 ];
 ---
 
@@ -15,13 +15,11 @@ const links = [
   <div class="mx-auto flex h-12 max-w-7xl items-center justify-between px-4 sm:px-6">
     <a href="#top" class="flex items-center gap-3">
       <svg viewBox="0 0 20 20" class="size-4 text-signal" aria-hidden="true"><path d="M2 2h16v16H2z M2 10h16 M10 2v16" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
-      <span class="display text-[15px] font-semibold tracking-wide uppercase">Vibe-CADing</span>
+      <span class="display text-[15px] font-semibold tracking-wide">Vibe-CADing</span>
     </a>
     <nav class="hidden items-center gap-5 lg:flex">
-      {links.map(([n, t, href]) => (
-        <a href={href} class="font-mono text-[11px] tracking-[0.12em] text-muted uppercase transition-colors hover:text-ink">
-          <span class="text-faint">{n}</span> {t}
-        </a>
+      {links.map(([t, href]) => (
+        <a href={href} class="text-[13px] text-muted transition-colors hover:text-ink">{t}</a>
       ))}
     </nav>
     <a href={repoUrl} class="border border-line-strong px-3 py-1 font-mono text-[11px] tracking-[0.12em] uppercase transition-colors hover:border-ink">Source ↗</a>

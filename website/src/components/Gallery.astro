@@ -11,9 +11,9 @@ const filters = [
 
 <section id="gallery" class="border-b border-line">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-    <SectionHead fig="02 — OUTPUTS" title="From the repository." dim="Nothing staged.">
-      Every image is a file checked into the repo. Each caption says who wrote the geometry code: an LLM, or a
-      hand-written reference.
+    <SectionHead fig="OUTPUTS" title="Outputs in the repository">
+      Every image below is a file checked into the repository. Each caption states who wrote the geometry code: a
+      language model, or a hand-written reference used for comparison.
     </SectionHead>
 
     <div class="mt-8 flex border border-line font-mono text-[11px] tracking-[0.1em] uppercase sm:inline-flex" role="group" aria-label="Filter gallery">
@@ -37,7 +37,7 @@ const filters = [
             </span>
           </div>
           <figcaption class="flex flex-1 flex-col p-5">
-            <h3 class="display text-xl font-semibold uppercase">{item.title}</h3>
+            <h3 class="display text-xl font-semibold">{item.title}</h3>
             <p class="mt-1 font-mono text-[11px] text-muted">{item.method} · <span class="text-ink">{item.author}</span></p>
             {item.prompt && <p class="mt-3 border-l-2 border-line-strong pl-3 font-mono text-[11.5px] leading-relaxed">“{item.prompt}”</p>}
             <p class="mt-3 flex-1 text-[13px] leading-relaxed text-muted">{item.note}</p>

@@ -5,6 +5,7 @@ import Hero from "../components/Hero.astro";
 import Method from "../components/Method.astro";
 import Gallery from "../components/Gallery.astro";
 import Interactive from "../components/Interactive.astro";
+import Explore from "../components/Explore.astro";
 import Printability from "../components/Printability.astro";
 import Simplify from "../components/Simplify.astro";
 import Motion from "../components/Motion.astro";
@@ -15,19 +16,20 @@ import Footer from "../components/Footer.astro";
 ---
 
 <Layout
-  title="Vibe-CADing: text in, printable geometry out"
+  title="Vibe-CADing: Conditional CAD Generation and Retrieval for a Text-to-CAD Design Pipeline"
   description="LLMs write the shape as code (CadQuery, build123d or GLSL). A C++ engine meshes it, checks it for 3D printing and feeds every flaw back until the part is valid. Live 3D demos, motion, results."
 >
   <Nav />
   <main>
     <Hero />
     <Method />
-    <Gallery />
-    <Interactive />
+    <Explore />
     <Printability />
     <Simplify />
     <Motion />
     <Engine />
+    <Interactive />
+    <Gallery />
     <Results />
     <Status />
   </main>

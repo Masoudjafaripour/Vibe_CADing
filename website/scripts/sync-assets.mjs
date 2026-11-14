@@ -9,6 +9,7 @@ const out = resolve(repo, "website/public/media");
 
 const files = {
   "dragon_gpt4o.gif": "src/CAD_Harness/sdf/assets/dragon_gpt4o.gif",
+  "gallery.gif": "src/CAD_Harness/sdf/assets/gallery.gif",
   "snowman.gif": "src/CAD_Harness/sdf/assets/snowman.gif",
   "snowman.png": "src/CAD_Harness/sdf/assets/snowman.png",
   "duck.gif": "src/CAD_Harness/sdf/assets/duck.gif",

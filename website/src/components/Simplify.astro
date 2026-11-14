@@ -6,9 +6,10 @@ import SectionHead from "./SectionHead.astro";
 
 <section id="simplify" class="grid-paper border-b border-line">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-    <SectionHead fig="05 — MESH" title="Ten times lighter," dim="same part.">
-      QEM edge collapse in C++ (Garland–Heckbert) with topology guards: collapses that would close a hole, split a part
-      or flip a face are refused, so the mesh stays watertight with the same genus.
+    <SectionHead fig="MESHING" title="Lighter meshes, same part">
+      Marching cubes produces dense meshes. A <em class="text-ink">quadric error metric</em> simplifier (Garland and
+      Heckbert) reduces them, refusing any collapse that would close a hole, split a part or flip a face, so the mesh
+      stays watertight with the same genus.
     </SectionHead>
 
     <div class="mt-10 grid gap-5 lg:grid-cols-[1.35fr_1fr]">

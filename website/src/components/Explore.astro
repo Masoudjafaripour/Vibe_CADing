@@ -1,0 +1,17 @@
+---
+import Models3D from "./Models3D.astro";
+import SectionHead from "./SectionHead.astro";
+---
+
+<section id="explore" class="grid-paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="3D MODELS" title="Explore the gallery in 3D">
+      The eight teaser shapes as real meshes: meshed in C++, simplified to 12k triangles, coloured from each shape's own{" "}
+      <code class="font-mono text-[13px] text-ink">sdf_color()</code> and exported as glTF. Drag to orbit, scroll to zoom,
+      and download any model.
+    </SectionHead>
+    <div class="mx-auto mt-10 max-w-4xl">
+      <Models3D />
+    </div>
+  </div>
+</section>

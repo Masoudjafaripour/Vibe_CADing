@@ -1,18 +1,19 @@
 ---
+// Research-page section heading: small figure label, sentence-case title, short lead.
 interface Props {
   fig: string;
   title: string;
-  dim?: string; // second, muted line of the title
+  dim?: string; // optional muted continuation of the title
 }
 const { fig, title, dim } = Astro.props;
 ---
 
-<div class="flex flex-wrap items-end justify-between gap-6">
+<div class="grid gap-6 lg:grid-cols-[1fr_1fr] lg:items-end">
   <div>
-    <p class="fig mb-3">FIG. {fig}</p>
-    <h2 class="display max-w-3xl text-4xl leading-[0.95] font-semibold uppercase sm:text-5xl">
-      {title}{dim && <><br /><span class="text-muted">{dim}</span></>}
+    <p class="fig mb-3">{fig}</p>
+    <h2 class="display text-3xl leading-tight font-semibold sm:text-4xl">
+      {title}{dim && <span class="text-muted"> {dim}</span>}
     </h2>
   </div>
-  <div class="max-w-sm text-[14px] leading-relaxed text-muted"><slot /></div>
+  <div class="max-w-xl text-[15px] leading-relaxed text-muted lg:justify-self-end"><slot /></div>
 </div>
