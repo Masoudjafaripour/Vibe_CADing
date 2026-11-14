@@ -1,0 +1,15 @@
+{
+  "model": "Qwen3 4B (4-bit)",
+  "answers": {
+    "A pipe flange with six bolt holes": "{\"name\": \"pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 6}}",
+    "A V-belt pulley with a center bore": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 60, \"width\": 18, \"groove_depth\": 6, \"bore\": 8, \"hub_diameter\": 0, \"hub_height\": 8}}",
+    "A knurled thumb knob with 12 grip ridges": "{\"name\": \"knurled thumb knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 12}}",
+    "A wall hook with two screw holes": "{\"name\": \"wall hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 2}}",
+    "A desk cable organizer with three round slots": "{\"name\": \"cable organizer\", \"family\": \"cable_organizer\", \"params\": {\"slots\": 3, \"slot_diameter\": 10}}",
+    "A hand wheel with five spokes": "{\"name\": \"hand_wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 100, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
+    "An M12 hex nut": "{\"name\": \"M12 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 12}}",
+    "A five-lobed star knob with a hex socket": "{\"name\": \"star knob\", \"family\": \"star_knob\", \"params\": {\"lobes\": 5, \"socket\": 10}}",
+    "A spur gear with 24 teeth and an 8 mm bore": "{\"name\": \"spur gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 8, \"bore\": 8}}",
+    "An L bracket with three screw holes per leg": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}"
+  }
+}

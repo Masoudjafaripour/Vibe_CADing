@@ -1,0 +1,17 @@
+{
+  "note": "Chosen by src/live_cad/eval_models.py (EVAL_Q4=1 simulates these 4-bit builds). See src/live_cad/README.md.",
+  "models": [
+    {
+      "id": "Qwen3-4B-q4f16_1-MLC",
+      "f32": "Qwen3-4B-q4f32_1-MLC",
+      "label": "Qwen3 4B (best)",
+      "download": "≈2.3 GB"
+    },
+    {
+      "id": "Qwen3-1.7B-q4f16_1-MLC",
+      "f32": "Qwen3-1.7B-q4f32_1-MLC",
+      "label": "Qwen3 1.7B (lighter)",
+      "download": "≈1 GB"
+    }
+  ]
+}

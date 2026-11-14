@@ -1,0 +1,217 @@
+---
+// "Try Vibe-CADing": an open LLM in the visitor's browser (WebLLM / WebGPU) writes a
+// part spec; the C++ engine, compiled to WebAssembly, builds and checks it.
+import prompt from "../../../src/live_cad/prompt.json";
+import models from "../../../src/live_cad/web_models.json";
+import { asset } from "../data/site";
+import SectionHead from "./SectionHead.astro";
+
+const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-[0.1em] uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40";
+---
+
+<section id="try" class="grid-paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="TRY IT" title="Try Vibe-CADing in your browser">
+      An open language model runs <em class="text-ink">on your own GPU</em>: no key, no server, and nothing you type leaves
+      your device. It picks a part family and fills in your numbers; the C++ engine, compiled to <em class="text-ink">WebAssembly</em>, builds it,
+      checks it for 3D printing and sends any problem back to the model. Best for simple mechanical parts.
+    </SectionHead>
+
+    <div class="mt-10 grid gap-5 lg:grid-cols-[1fr_1.25fr]">
+      <!-- controls -->
+      <div class="frame flex min-w-0 flex-col bg-panel/80 p-4 sm:p-5">
+        <span class="corners"></span>
+        <label for="live-prompt" class="label">Describe a part</label>
+        <textarea id="live-prompt" rows="2" maxlength="200" class="mt-2 w-full resize-none border border-line-strong bg-bg p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-signal">{prompt.suggestions[0]}</textarea>
+        <div class="mt-3 flex flex-wrap gap-1.5" id="live-suggest">
+          {prompt.suggestions.map((s) => (
+            <button type="button" data-suggest={s} class="border border-line px-2 py-1 text-left text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink">{s}</button>
+          ))}
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div>
+            <label for="live-model" class="label">Model (downloads once, then cached)</label>
+            <select id="live-model" class="mt-2 w-full border border-line-strong bg-bg p-2 font-mono text-[12px]">
+              {models.models.map((m) => <option value={m.id} data-f32={m.f32}>{m.label} · {m.download}</option>)}
+            </select>
+          </div>
+          <button id="live-run" type="button" class:list={[btn, "border-signal bg-signal text-white hover:border-signal hover:opacity-90"]}>Generate</button>
+        </div>
+        <button id="live-replay" type="button" class:list={[btn, "mt-3"]}>No download: run a recorded answer</button>
+
+        <div class="mt-5 border-t border-line pt-4">
+          <div class="h-1 bg-line"><div id="live-progress" class="h-1 bg-signal transition-[width]" style="width:0%"></div></div>
+          <p id="live-status" class="mt-2 min-h-[1.25rem] font-mono text-[11px] text-muted" aria-live="polite">Checking WebGPU…</p>
+          <ol id="live-log" class="mt-3 space-y-2 font-mono text-[11px] leading-relaxed"></ol>
+        </div>
+      </div>
+
+      <!-- viewport -->
+      <div class="frame min-w-0 bg-panel/60">
+        <span class="corners"></span>
+        <div class="flex items-center justify-between border-b border-line px-3 py-2 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+          <span>Viewport — <span id="live-name" class="text-ink">no part yet</span></span>
+          <span class="hidden sm:inline">Y-up · mm</span>
+        </div>
+        <div class="relative">
+          <canvas id="live-canvas" data-base={asset("")} class="block aspect-[5/4] w-full cursor-grab touch-none" aria-label="3D view of the generated part"></canvas>
+          <div class="pointer-events-none absolute top-3 left-3 space-y-0.5 font-mono text-[11px] text-muted">
+            <p>VERDICT <span id="live-verdict" class="text-ink">—</span></p>
+            <p>TRIS <span id="live-tris" class="text-ink">—</span> · SHELLS <span id="live-shells" class="text-ink">—</span> · GENUS <span id="live-genus" class="text-ink">—</span></p>
+            <p>SIZE <span id="live-size" class="text-ink">—</span></p>
+            <p>C++ <span id="live-ms" class="text-ink">—</span></p>
+          </div>
+          <p id="live-empty" class="pointer-events-none absolute inset-x-6 top-1/2 -translate-y-1/2 text-center font-mono text-[12px] text-faint">
+            Pick a part and press Generate, or run a recorded answer.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2">
+          <button id="live-stl" type="button" disabled class:list={[btn, "py-1.5"]}>Download STL</button>
+          <details class="group min-w-0 flex-1">
+            <summary class="cursor-pointer list-none font-mono text-[11px] tracking-[0.1em] text-muted uppercase select-none hover:text-ink">
+              <span class="mr-1 inline-block transition-transform group-open:rotate-90">›</span> Spec written by the model
+            </summary>
+            <pre id="live-spec" class="mt-2 max-h-56 overflow-auto bg-bg p-3 font-mono text-[11px] leading-relaxed text-muted">—</pre>
+          </details>
+        </div>
+      </div>
+    </div>
+    <p class="mt-4 font-mono text-[11px] text-faint">
+      Needs WebGPU (desktop Chrome or Edge). The model was chosen by an evaluation on the suggested parts and ten held-out prompts; see
+      src/live_cad/README.md. Small models make mistakes: the checks catch broken and unprintable parts, not every wrong shape.
+    </p>
+  </div>
+</section>
+
+<script>
+  import recorded from "../../../src/live_cad/recorded.json";
+  import { generatePart, loadGeometryEngine, loadModel, webgpuStatus, type Attempt, type BuildResult } from "../scripts/live-cad";
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const canvas = $("live-canvas") as HTMLCanvasElement;
+  const promptBox = $("live-prompt") as HTMLTextAreaElement;
+  const modelSel = $("live-model") as HTMLSelectElement;
+  const runBtn = $("live-run") as HTMLButtonElement;
+  const replayBtn = $("live-replay") as HTMLButtonElement;
+  const stlBtn = $("live-stl") as HTMLButtonElement;
+  const status = (t: string) => ($("live-status").textContent = t);
+  const progress = (f: number) => (($("live-progress") as HTMLElement).style.width = `${Math.round(f * 100)}%`);
+  let viewer: { show(p: Float32Array, i: Uint32Array, c: Float32Array): void } | null = null;
+  let busy = false;
+  let gpuF16 = true;
+
+  document.querySelectorAll<HTMLButtonElement>("#live-suggest [data-suggest]").forEach((b) =>
+    b.addEventListener("click", () => (promptBox.value = b.dataset.suggest!)));
+
+  function verdictClass(v: string) {
+    return v === "printable" ? "text-ok" : v === "printable with supports" ? "text-warn" : "text-bad";
+  }
+
+  async function show(r: BuildResult) {
+    $("live-verdict").textContent = r.verdict;
+    $("live-verdict").className = verdictClass(r.verdict);
+    if (!r.ok) return;
+    viewer ??= (await import("../scripts/mesh-viewer")).mountMeshViewer(canvas);
+    viewer.show(r.positions!, r.indices!, r.colors!);
+    $("live-empty").hidden = true;
+    $("live-name").textContent = r.name || "part";
+    $("live-tris").textContent = r.triangles.toLocaleString("en-US");
+    $("live-shells").textContent = String(r.shells);
+    $("live-genus").textContent = String(r.genus);
+    $("live-size").textContent = r.size.map((v) => v.toFixed(0)).join(" × ") + " mm";
+    $("live-ms").textContent = `${(r.ms.sample + r.ms.mesh + r.ms.check).toFixed(0)} ms (mesh + checks)`;
+    stlBtn.disabled = false;
+  }
+
+  function logAttempt(a: Attempt, n: number, extra = "") {
+    const li = document.createElement("li");
+    li.className = "border-l-2 pl-3 " + (a.result.feedback ? "border-bad" : "border-ok");
+    const head = document.createElement("p");
+    head.innerHTML = `<span class="text-faint">ATTEMPT ${n}</span> <span class="${verdictClass(a.result.verdict)}">${a.result.verdict}</span>` +
+      (a.seconds ? ` <span class="text-faint">· ${a.seconds.toFixed(1)} s</span>` : "") + extra;
+    li.append(head);
+    if (a.result.feedback) {
+      const fb = document.createElement("p");
+      fb.className = "text-muted whitespace-pre-line";
+      fb.textContent = a.result.feedback + (n <= 2 ? "\n→ sent back to the model" : "");
+      li.append(fb);
+    }
+    $("live-log").append(li);
+    const written = (() => { try { return JSON.stringify(JSON.parse(a.spec), null, 2); } catch { return a.spec; } })();
+    $("live-spec").textContent = written + (a.result.expanded ? "\n\n// expanded by the C++ engine:\n" + a.result.expanded : "") +
+      (a.result.notes?.length ? "\n\n// notes: " + a.result.notes.join("; ") : "");
+    show(a.result);
+  }
+
+  function reset() {
+    $("live-log").replaceChildren();
+    stlBtn.disabled = true;
+    progress(0);
+  }
+
+  async function engine() {
+    return loadGeometryEngine(canvas.dataset.base!);
+  }
+
+  runBtn.addEventListener("click", async () => {
+    if (busy) return;
+    busy = true; runBtn.disabled = replayBtn.disabled = true;
+    reset();
+    try {
+      const eng = await engine();
+      const opt = modelSel.selectedOptions[0];
+      const modelId = !gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value;
+      status(`Loading ${opt.textContent}…`);
+      await loadModel(modelId, (f, t) => { progress(f); status(t.length > 110 ? t.slice(0, 110) + "…" : t); });
+      progress(1);
+      await generatePart(eng, promptBox.value.trim(), {
+        onAttempt: (n) => status(n === 1 ? "The model is writing the spec…" : `Repair ${n - 1}: the model is fixing the spec…`),
+        onToken: (t) => ($("live-spec").textContent = t),
+        onResult: (a, n) => logAttempt(a, n),
+      });
+      status("Done. Drag to orbit; download the STL to print it.");
+    } catch (err) {
+      status(`Error: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      busy = false; runBtn.disabled = replayBtn.disabled = false;
+      if (!gpuOk) runBtn.disabled = true;
+    }
+  });
+
+  replayBtn.addEventListener("click", async () => {
+    if (busy) return;
+    reset();
+    const eng = await engine();
+    const key = promptBox.value.trim();
+    const answer = (recorded.answers as Record<string, string>)[key] ?? Object.values(recorded.answers as Record<string, string>)[0];
+    const used = (recorded.answers as Record<string, string>)[key] ? key : Object.keys(recorded.answers)[0];
+    promptBox.value = used;
+    const t0 = performance.now();
+    const result = eng.build(answer, 112, 1.0, 60000);
+    logAttempt({ spec: answer, result, seconds: 0 }, 1, ` <span class="text-faint">· recorded answer from ${recorded.model}, built live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
+    status(`Recorded answer from ${recorded.model}; geometry, checks and STL computed now by the C++ engine (WebAssembly).`);
+  });
+
+  stlBtn.addEventListener("click", async () => {
+    const bytes = (await engine()).stl();
+    const url = URL.createObjectURL(new Blob([bytes], { type: "model/stl" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ($("live-name").textContent || "part").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + ".stl";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+  let gpuOk = false;
+  webgpuStatus().then((s) => {
+    gpuOk = s.ok;
+    gpuF16 = s.f16;
+    if (!s.ok) {
+      runBtn.disabled = true;
+      status(`${s.reason} You can still run a recorded answer: the geometry engine runs without WebGPU.`);
+    } else {
+      status(s.f16 ? "WebGPU ready." : "WebGPU ready (no f16 support: using the f32 build of the model).");
+    }
+  });
+</script>

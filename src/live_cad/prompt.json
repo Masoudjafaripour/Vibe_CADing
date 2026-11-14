@@ -1,0 +1,744 @@
+{
+  "system": "You are a mechanical designer. You turn a short description of a simple part into JSON that will be 3D-printed. Most parts match a family: pick it and copy every number the request gives into params, as digits (\"three holes\" -> 3, \"M12\" -> 12, sizes in mm). A family answer has params and no parts. Each family lists other names it goes by (\"Also: ...\"). Use \"custom\" with parts only when the part is clearly none of the families. Output only the JSON.\n\n{{SPEC_GUIDE}}",
+  "examples": [
+    {
+      "prompt": "A 30 mm washer for an M16 bolt, 3 mm thick",
+      "spec": {
+        "name": "M16 washer",
+        "family": "washer",
+        "params": {
+          "outer": 30,
+          "inner": 17,
+          "thickness": 3
+        }
+      }
+    },
+    {
+      "prompt": "A round standoff, twenty-five millimetres long, for M4 screws",
+      "spec": {
+        "name": "round M4 standoff",
+        "family": "standoff",
+        "params": {
+          "length": 25,
+          "hole_diameter": 4.3,
+          "sides": 0,
+          "across_flats": 8
+        }
+      }
+    },
+    {
+      "prompt": "A bearing housing: square base plate with four corner mounting holes and a raised round boss with a 22 mm bore",
+      "spec": {
+        "name": "bearing housing",
+        "family": "custom",
+        "parts": [
+          {
+            "shape": "box",
+            "size": [
+              70,
+              10,
+              70
+            ],
+            "at": [
+              0,
+              5,
+              0
+            ],
+            "op": "add",
+            "round": 4,
+            "color": "aluminium"
+          },
+          {
+            "shape": "cylinder",
+            "size": [
+              42,
+              26
+            ],
+            "at": [
+              0,
+              13,
+              0
+            ],
+            "op": "add",
+            "blend": 3
+          },
+          {
+            "shape": "cylinder",
+            "size": [
+              22,
+              40
+            ],
+            "at": [
+              0,
+              13,
+              0
+            ],
+            "op": "cut"
+          },
+          {
+            "shape": "cylinder",
+            "size": [
+              7,
+              30
+            ],
+            "at": [
+              24,
+              5,
+              24
+            ],
+            "op": "cut",
+            "repeat": 4
+          }
+        ]
+      }
+    }
+  ],
+  "repair": "{{FEEDBACK}}",
+  "schema": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "flange"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "number"
+              },
+              "diameter": {
+                "type": "number"
+              },
+              "thickness": {
+                "type": "number"
+              },
+              "bore": {
+                "type": "number"
+              },
+              "hole_diameter": {
+                "type": "number"
+              },
+              "hole_circle": {
+                "type": "number"
+              },
+              "hub_diameter": {
+                "type": "number"
+              },
+              "hub_height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "count"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "pulley"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "diameter": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "groove_depth": {
+                "type": "number"
+              },
+              "bore": {
+                "type": "number"
+              },
+              "hub_diameter": {
+                "type": "number"
+              },
+              "hub_height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "knurled_knob"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "ridges": {
+                "type": "number"
+              },
+              "diameter": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "bore": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "ridges"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "star_knob"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "lobes": {
+                "type": "number"
+              },
+              "diameter": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "socket": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "lobes"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "hex_nut"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "thread": {
+                "type": "number"
+              },
+              "across_flats": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "thread"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "hand_wheel"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "spokes": {
+                "type": "number"
+              },
+              "diameter": {
+                "type": "number"
+              },
+              "rim_thickness": {
+                "type": "number"
+              },
+              "hub_diameter": {
+                "type": "number"
+              },
+              "hub_height": {
+                "type": "number"
+              },
+              "bore": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "spokes"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "wall_hook"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "holes": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "length": {
+                "type": "number"
+              },
+              "thickness": {
+                "type": "number"
+              },
+              "hook_length": {
+                "type": "number"
+              },
+              "hook_diameter": {
+                "type": "number"
+              },
+              "hole_diameter": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "holes"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "cable_organizer"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "slots": {
+                "type": "number"
+              },
+              "length": {
+                "type": "number"
+              },
+              "depth": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "slot_diameter": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "slots"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "spur_gear"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "teeth": {
+                "type": "number"
+              },
+              "module": {
+                "type": "number"
+              },
+              "thickness": {
+                "type": "number"
+              },
+              "bore": {
+                "type": "number"
+              },
+              "hub_diameter": {
+                "type": "number"
+              },
+              "hub_height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "teeth"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "washer"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "outer": {
+                "type": "number"
+              },
+              "inner": {
+                "type": "number"
+              },
+              "thickness": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "standoff"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "across_flats": {
+                "type": "number"
+              },
+              "length": {
+                "type": "number"
+              },
+              "hole_diameter": {
+                "type": "number"
+              },
+              "sides": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "l_bracket"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "holes": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "base_length": {
+                "type": "number"
+              },
+              "upright_length": {
+                "type": "number"
+              },
+              "thickness": {
+                "type": "number"
+              },
+              "hole_diameter": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "holes"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "custom"
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "shape": {
+                  "type": "string",
+                  "enum": [
+                    "box",
+                    "cylinder",
+                    "sphere",
+                    "torus",
+                    "capsule",
+                    "cone",
+                    "prism"
+                  ]
+                },
+                "size": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 1,
+                  "maxItems": 3
+                },
+                "at": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "rotate": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "cut"
+                  ]
+                },
+                "blend": {
+                  "type": "number"
+                },
+                "round": {
+                  "type": "number"
+                },
+                "repeat": {
+                  "type": "integer"
+                },
+                "color": {
+                  "type": "string",
+                  "enum": [
+                    "steel",
+                    "aluminium",
+                    "brass",
+                    "copper",
+                    "black",
+                    "white",
+                    "red",
+                    "orange",
+                    "yellow",
+                    "green",
+                    "blue",
+                    "wood"
+                  ]
+                }
+              },
+              "required": [
+                "shape",
+                "size",
+                "at",
+                "op"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "parts"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  },
+  "suggestions": [
+    "A pipe flange with six bolt holes",
+    "A V-belt pulley with a center bore",
+    "A knurled thumb knob with 12 grip ridges",
+    "A wall hook with two screw holes",
+    "A desk cable organizer with three round slots",
+    "A hand wheel with five spokes",
+    "An M12 hex nut",
+    "A five-lobed star knob with a hex socket",
+    "A spur gear with 24 teeth and an 8 mm bore",
+    "An L bracket with three screw holes per leg"
+  ]
+}

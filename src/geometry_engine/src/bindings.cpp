@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "vibecad/mesh.hpp"
+#include "vibecad/csg.hpp"
 #include "vibecad/mesh_ops.hpp"
 #include "vibecad/printability.hpp"
 
@@ -175,6 +176,39 @@ PYBIND11_MODULE(vibecad_geom, m) {
         },
         "vertices"_a, "triangles"_a, "path"_a, "colors"_a = py::none(), "name"_a = "mesh",
         "Binary glTF 2.0 (.glb) with normals and optional per-vertex RGB colours (0-1).");
+
+    m.def(
+        "csg_build",
+        [](const std::string& spec, int resolution, float min_wall, size_t target_triangles) {
+            csg::BuildOptions o;
+            o.resolution = resolution, o.min_wall = min_wall, o.target_triangles = target_triangles;
+            csg::BuildResult r;
+            {
+                py::gil_scoped_release release;
+                r = csg::build(spec, o);
+            }
+            py::object v = py::none(), t = py::none(), c = py::none();
+            if (r.ok) {
+                py::tuple vt = from_mesh(r.mesh);
+                v = vt[0], t = vt[1];
+                FloatArray ca({py::ssize_t(r.colors.size()), py::ssize_t(3)});
+                std::memcpy(ca.mutable_data(), r.colors.data(), ca.nbytes());
+                c = ca;
+            }
+            return py::dict("ok"_a = r.ok, "name"_a = r.name, "verdict"_a = r.verdict, "errors"_a = r.errors,
+                            "expanded"_a = r.expanded,
+                            "warnings"_a = r.warnings, "notes"_a = r.notes, "feedback"_a = r.feedback,
+                            "vertices"_a = v, "triangles"_a = t, "colors"_a = c,
+                            "watertight"_a = r.stats.watertight, "shells"_a = r.stats.components, "genus"_a = r.stats.genus,
+                            "volume_mm3"_a = r.stats.volume, "floating_shells"_a = r.print.floating_shells,
+                            "overhang_fraction"_a = r.print.overhang_fraction, "thin_fraction"_a = r.thickness.thin_volume_fraction,
+                            "size_mm"_a = py::make_tuple(r.print.size_mm[0], r.print.size_mm[1], r.print.size_mm[2]),
+                            "ms"_a = py::make_tuple(r.ms_sample, r.ms_mesh, r.ms_check));
+        },
+        "spec"_a, "resolution"_a = 112, "min_wall"_a = 1.0f, "target_triangles"_a = 0,
+        "JSON part spec -> validated, meshed, printability-checked part (with feedback for an LLM).");
+
+    m.def("spec_guide", &csg::spec_guide, "The part-spec language, as text for an LLM prompt.");
 
     m.def(
         "write_stl",
