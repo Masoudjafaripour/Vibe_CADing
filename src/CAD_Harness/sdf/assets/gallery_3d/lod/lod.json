@@ -1,0 +1,37 @@
+{
+  "shape": "vase",
+  "full_triangles": 158768,
+  "levels": [
+    {
+      "target": 6000,
+      "triangles": 6000,
+      "file": "vase_6000.glb",
+      "kb": 153,
+      "volume_error_pct": 0.24,
+      "watertight": true,
+      "genus": 0,
+      "shells": 1
+    },
+    {
+      "target": 24000,
+      "triangles": 24000,
+      "file": "vase_24000.glb",
+      "kb": 611,
+      "volume_error_pct": 0.02,
+      "watertight": true,
+      "genus": 0,
+      "shells": 1
+    },
+    {
+      "target": 96000,
+      "triangles": 96000,
+      "file": "vase_96000.glb",
+      "kb": 2439,
+      "volume_error_pct": 0.0,
+      "watertight": true,
+      "genus": 0,
+      "shells": 1
+    }
+  ],
+  "note": "A 1,500-triangle target stops at ~5,600: further collapses would break the thin twisted wall or flip faces, so the simplifier refuses them."
+}

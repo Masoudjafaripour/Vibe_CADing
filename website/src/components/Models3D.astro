@@ -1,106 +1,111 @@
 ---
+// The hero viewport: the 8 text-to-CAD gallery shapes as coloured glTF meshes
+// (C++ engine: marching cubes -> QEM simplification -> printability -> glTF).
 import models from "../../../src/CAD_Harness/sdf/assets/gallery_3d/index.json";
 import { asset, blobUrl } from "../data/site";
 
-const verdictStyle: Record<string, string> = {
-  printable: "bg-ok-soft text-ok",
-  "printable with supports": "bg-warn-soft text-warn",
-  "not printable": "bg-bad-soft text-bad",
+const verdictColor: Record<string, string> = {
+  printable: "text-ok",
+  "printable with supports": "text-warn",
+  "not printable": "text-bad",
 };
 ---
 
-<section id="models3d" class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-  <p class="eyebrow mb-3">Text-to-CAD in 3D</p>
-  <h2 class="section-title">Eight prompts, eight printable meshes</h2>
-  <p class="mt-3 max-w-3xl text-muted">
-    Each model below started as a text prompt. An LLM wrote it as GLSL, and the C++ engine then meshed it, simplified it
-    (QEM, keeping holes and separate parts), coloured it from the shape's own <code class="font-mono text-[13px]">sdf_color()</code>,
-    checked it for 3D printing and exported it as glTF. Drag to orbit, scroll to zoom.
-  </p>
-
-  <div class="mt-10 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-    <article class="card min-w-0 overflow-hidden bg-bg">
-      <div class="flex flex-wrap gap-1 border-b border-line p-3" role="group" aria-label="Choose model" id="m3d-buttons">
-        {models.map((m, i) => (
-          <button
-            type="button"
-            data-model={m.name}
-            aria-pressed={i === 0 ? "true" : "false"}
-            class="rounded-lg px-2.5 py-1 text-xs text-muted capitalize transition-colors hover:text-ink aria-pressed:bg-ink aria-pressed:text-bg"
-          >
-            {m.name}
-          </button>
-        ))}
+<div id="models3d" class="min-w-0">
+  <div class="frame bg-panel/60">
+    <span class="corners"></span>
+    <div class="flex items-center justify-between border-b border-line px-3 py-2 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+      <span>Viewport 01 — <span id="hud-file" class="text-ink">{models[0].name}.glb</span></span>
+      <span class="hidden sm:inline">Persp · Y-up · mm</span>
+    </div>
+    <div class="relative">
+      <canvas id="m3d-canvas" data-base={asset("media/gallery_3d/")} class="block aspect-[5/4] w-full cursor-grab touch-none" aria-label="Interactive 3D view of the selected model"></canvas>
+      <div class="pointer-events-none absolute top-3 left-3 space-y-0.5 font-mono text-[11px] text-muted">
+        <p>TRIS <span id="hud-tris" class="text-ink">—</span></p>
+        <p>SHELLS <span id="hud-shells" class="text-ink">—</span> · GENUS <span id="hud-genus" class="text-ink">—</span></p>
+        <p>VERDICT <span id="hud-verdict">—</span></p>
       </div>
-      <div class="relative">
-        <canvas id="m3d-canvas" data-base={asset("media/gallery_3d/")} class="block aspect-[4/3] w-full cursor-grab touch-none" aria-label="Interactive 3D view of the selected model"></canvas>
-        <p id="m3d-status" class="pointer-events-none absolute inset-x-0 bottom-3 text-center font-mono text-xs text-muted">Loading…</p>
-      </div>
-    </article>
-
-    <div class="min-w-0">
+      <svg class="pointer-events-none absolute right-3 bottom-3 size-14" viewBox="0 0 56 56" aria-hidden="true">
+        <line x1="16" y1="40" x2="44" y2="40" stroke="#ff5252" stroke-width="1.5" /><text x="47" y="43" font-size="9" fill="#ff5252" font-family="IBM Plex Mono">X</text>
+        <line x1="16" y1="40" x2="16" y2="12" stroke="#3ddc84" stroke-width="1.5" /><text x="13" y="9" font-size="9" fill="#3ddc84" font-family="IBM Plex Mono">Y</text>
+        <line x1="16" y1="40" x2="5" y2="51" stroke="#4cc3ff" stroke-width="1.5" /><text x="0" y="56" font-size="9" fill="#4cc3ff" font-family="IBM Plex Mono">Z</text>
+      </svg>
+      <p id="m3d-status" class="pointer-events-none absolute inset-x-0 top-1/2 text-center font-mono text-xs text-muted">Loading…</p>
+    </div>
+    <div class="flex items-center gap-2 border-t border-line px-3 py-2 font-mono text-[11px] text-muted">
+      <span class="h-2 border-l border-line-strong"></span>
+      <span class="h-px flex-1 bg-line-strong"></span>
+      <span id="hud-dims" class="text-ink">—</span>
+      <span class="h-px flex-1 bg-line-strong"></span>
+      <span class="h-2 border-r border-line-strong"></span>
+    </div>
+    <div class="grid grid-cols-4 border-t border-line sm:grid-cols-8" id="m3d-buttons" role="group" aria-label="Choose model">
       {models.map((m, i) => (
-        <article data-info={m.name} hidden={i !== 0} class="card p-6">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 class="text-lg font-semibold capitalize">{m.name}</h3>
-            {m.print && <span class:list={["tag", verdictStyle[m.print.verdict]]}>{m.print.verdict}</span>}
-          </div>
-          <p class="mt-3 rounded-lg bg-surface-2 px-3 py-2 font-mono text-[12px] leading-relaxed">“{m.prompt}”</p>
-          <p class="mt-2 text-xs text-muted">GLSL written by {m.author}</p>
-          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div class="rounded-xl bg-surface-2 p-3"><dt class="text-xs text-muted">Size</dt><dd class="font-medium">{m.size_mm.map((v: number) => v.toFixed(0)).join(" × ")} mm</dd></div>
-            <div class="rounded-xl bg-surface-2 p-3"><dt class="text-xs text-muted">Topology</dt><dd class="font-medium">{m.shells} shell{m.shells === 1 ? "" : "s"} · genus {m.genus}</dd></div>
-            <div class="rounded-xl bg-surface-2 p-3"><dt class="text-xs text-muted">Full mesh</dt><dd class="font-medium">{(m.triangles_full / 1000).toFixed(0)}k triangles</dd></div>
-            <div class="rounded-xl bg-surface-2 p-3"><dt class="text-xs text-muted">Shown</dt><dd class="font-medium" data-shown>12k triangles</dd></div>
-          </dl>
-          {m.print && m.print.issues.length > 0 && (
-            <ul class="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
-              {m.print.issues.map((t: string) => <li class="flex gap-2"><span class="mt-1.5 size-1 shrink-0 rounded-full bg-warn"></span><span>{t}</span></li>)}
-            </ul>
-          )}
-          <div class="mt-5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px]">
-            <a href={asset(`media/gallery_3d/${m.name}.glb`)} download class="underline decoration-line underline-offset-4 hover:text-ink">download .glb</a>
-            <a href={blobUrl(`src/CAD_Harness/sdf/gallery/${m.name}.glsl`)} class="text-muted underline decoration-line underline-offset-4 hover:text-ink">GLSL source</a>
-          </div>
-        </article>
+        <button type="button" data-model={m.name} aria-pressed={i === 0 ? "true" : "false"}
+          class="border-r border-b border-line px-2 py-2 font-mono text-[11px] tracking-[0.08em] text-muted uppercase transition-colors hover:text-ink aria-pressed:bg-ink aria-pressed:text-bg sm:border-b-0 [&:nth-child(4n)]:border-r-0 sm:[&:nth-child(4n)]:border-r sm:last:border-r-0">
+          {m.name}
+        </button>
       ))}
     </div>
   </div>
-</section>
+
+  {models.map((m, i) => (
+    <div data-info={m.name} hidden={i !== 0} class="mt-3 grid gap-x-6 gap-y-2 border-b border-line pb-3 font-mono text-[11px] text-muted sm:grid-cols-[1fr_auto]">
+      <p class="leading-relaxed"><span class="text-faint">PROMPT</span> <span class="text-ink">“{m.prompt}”</span></p>
+      <p class="sm:text-right">
+        <span class:list={[verdictColor[m.print?.verdict ?? ""], "uppercase"]}>{m.print?.verdict}</span>
+        <span class="text-faint"> · GLSL by {m.author.replace(" (Opus 5.5)", "")}</span>
+      </p>
+      {m.print && m.print.issues.length > 0 && (
+        <p class="leading-relaxed sm:col-span-2"><span class="text-faint">NOTES</span> {m.print.issues.join(" ").replaceAll("mm^2", "mm²")}</p>
+      )}
+      <p class="sm:col-span-2">
+        <a href={asset(`media/gallery_3d/${m.name}.glb`)} download class="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">download .glb</a>
+        <span class="text-faint"> · </span>
+        <a href={blobUrl(`src/CAD_Harness/sdf/gallery/${m.name}.glsl`)} class="underline decoration-line underline-offset-4 hover:text-ink">GLSL source</a>
+      </p>
+    </div>
+  ))}
+</div>
 
 <script>
+  import models from "../../../src/CAD_Harness/sdf/assets/gallery_3d/index.json";
+
   const canvas = document.getElementById("m3d-canvas") as HTMLCanvasElement;
   const status = document.getElementById("m3d-status")!;
-  const base = canvas.dataset.base!;
-  const buttons = document.querySelectorAll<HTMLButtonElement>("#m3d-buttons [data-model]");
+  const byName = Object.fromEntries(models.map((m) => [m.name, m]));
+  const set = (id: string, text: string) => (document.getElementById(id)!.textContent = text);
   let viewer: { load(url: string): Promise<{ triangles: number }> } | null = null;
 
   async function show(name: string) {
-    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.model === name)));
+    const m = byName[name];
+    document.querySelectorAll<HTMLButtonElement>("#m3d-buttons [data-model]").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.model === name)));
     document.querySelectorAll<HTMLElement>("[data-info]").forEach((el) => (el.hidden = el.dataset.info !== name));
+    set("hud-file", `${name}.glb`);
+    set("hud-dims", m.size_mm.map((v: number) => v.toFixed(0)).join(" × ") + " mm");
+    set("hud-shells", String(m.shells));
+    set("hud-genus", String(m.genus));
+    const verdict = m.print?.verdict ?? "—";
+    const v = document.getElementById("hud-verdict")!;
+    v.textContent = verdict;
+    v.className = verdict === "printable" ? "text-ok" : verdict === "not printable" ? "text-bad" : "text-warn";
     if (!viewer) return;
     status.textContent = "Loading…";
     try {
-      const { triangles } = await viewer.load(`${base}${name}.glb`);
+      const { triangles } = await viewer.load(`${canvas.dataset.base}${name}.glb`);
       status.textContent = "";
-      const shown = document.querySelector<HTMLElement>(`[data-info="${name}"] [data-shown]`);
-      if (shown) shown.textContent = `${(triangles / 1000).toFixed(1)}k triangles`;
+      set("hud-tris", `${triangles.toLocaleString("en-US")} of ${m.triangles_full.toLocaleString("en-US")}`);
     } catch (err) {
       status.textContent = `Could not load the model: ${err}`;
     }
   }
-  buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.model!)));
+  document.querySelectorAll<HTMLButtonElement>("#m3d-buttons [data-model]").forEach((b) =>
+    b.addEventListener("click", () => show(b.dataset.model!)));
+  show(models[0].name);
 
-  // three.js and the first model load only when the section scrolls near the viewport
-  const io = new IntersectionObserver(
-    async ([entry]) => {
-      if (!entry.isIntersecting) return;
-      io.disconnect();
-      const { mountGlbViewer } = await import("../scripts/glb-viewer");
-      viewer = mountGlbViewer(canvas);
-      show(buttons[0].dataset.model!);
-    },
-    { rootMargin: "300px" },
-  );
-  io.observe(canvas);
+  import("../scripts/glb-viewer").then(({ mountGlbViewer }) => {
+    viewer = mountGlbViewer(canvas);
+    show(document.querySelector<HTMLButtonElement>('#m3d-buttons [aria-pressed="true"]')!.dataset.model!);
+  });
 </script>

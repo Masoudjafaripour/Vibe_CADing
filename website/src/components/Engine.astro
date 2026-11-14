@@ -1,0 +1,44 @@
+---
+import { engineModules, speedups, treeUrl } from "../data/site";
+import SectionHead from "./SectionHead.astro";
+
+const maxLog = Math.log10(Math.max(...speedups.map((s) => s.x)));
+---
+
+<section id="engine" class="grid-paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="07 — ENGINE" title="The heavy lifting" dim="is C++.">
+      Python orchestrates the LLM; the per-voxel and per-frame loops run in a C++17 engine, exposed to Python through
+      pybind11. Every C++ result is tested against the original Python or against exact formulas.
+    </SectionHead>
+
+    <div class="mt-10 border-t border-line-strong">
+      {speedups.map((s) => (
+        <div class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b border-line py-4 sm:grid-cols-[260px_1fr_160px]">
+          <div>
+            <p class="display text-lg font-semibold uppercase">{s.step}</p>
+            <p class="font-mono text-[11px] text-faint">{s.area}</p>
+          </div>
+          <p class="display text-right text-4xl font-semibold text-signal sm:order-last">{s.x}×</p>
+          <div class="col-span-2 sm:col-span-1">
+            <div class="h-2 bg-line"><div class="h-2 bg-signal" style={`width:${(100 * Math.log10(s.x)) / maxLog}%`}></div></div>
+            <p class="mt-1.5 font-mono text-[11px] text-muted">Python {s.py} → C++ {s.cpp}</p>
+          </div>
+        </div>
+      ))}
+      <p class="mt-3 font-mono text-[11px] text-faint">Single thread, same algorithm and same output in both languages; bar length on a log scale.</p>
+    </div>
+
+    <div class="mt-10 grid gap-px border border-line bg-line md:grid-cols-2">
+      {engineModules.map((m) => (
+        <div class="bg-bg p-6">
+          <p class="font-mono text-[13px] text-cyan">import {m.name}</p>
+          <ul class="mt-3 space-y-1.5 text-[13px] text-muted">
+            {m.items.map((it) => <li class="flex gap-2"><span class="text-faint">—</span>{it}</li>)}
+          </ul>
+        </div>
+      ))}
+    </div>
+    <p class="mt-4 font-mono text-[11px] text-muted">pip install ./src/geometry_engine · <a href={treeUrl("src/geometry_engine")} class="underline decoration-line underline-offset-4 hover:text-ink">src/geometry_engine ↗</a></p>
+  </div>
+</section>

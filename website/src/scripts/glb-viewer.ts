@@ -44,7 +44,7 @@ export function mountGlbViewer(canvas: HTMLCanvasElement) {
   });
 
   return {
-    load(url: string): Promise<{ triangles: number }> {
+    load(url: string, wireframe = false): Promise<{ triangles: number }> {
       return new Promise((resolve, reject) => {
         loader.load(
           url,
@@ -58,6 +58,13 @@ export function mountGlbViewer(canvas: HTMLCanvasElement) {
                 const mat = mesh.material as THREE.MeshStandardMaterial;
                 mat.side = THREE.FrontSide;
                 triangles += (mesh.geometry.index?.count ?? 0) / 3;
+                if (wireframe) {  // show the triangles on top of the shaded surface
+                  mat.polygonOffset = true;
+                  mat.polygonOffsetFactor = 1;
+                  mat.polygonOffsetUnits = 1;
+                  mesh.add(new THREE.LineSegments(new THREE.WireframeGeometry(mesh.geometry),
+                    new THREE.LineBasicMaterial({ color: 0x0b0d10, transparent: true, opacity: 0.35 })));
+                }
               }
             });
             scene.add(current);

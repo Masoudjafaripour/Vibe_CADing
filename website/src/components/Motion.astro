@@ -1,0 +1,88 @@
+---
+import { asset, treeUrl } from "../data/site";
+import SectionHead from "./SectionHead.astro";
+
+// From `python export_bvh.py` (src/animation): jerk and planted-foot sliding before -> after C++ foot locking.
+const clips = [
+  { file: "walk_procedural.bvh", label: "Walk · procedural", color: "#8f99a8", text: "hand-written baseline", jerk: 52.4, before: 0.47, after: 0.15 },
+  { file: "walk_ar.bvh", label: "Walk · AR", color: "#4cc3ff", text: "“walk forward” → AR Transformer", jerk: 80.2, before: 0.45, after: 0.14 },
+  { file: "walk_diffusion.bvh", label: "Walk · DDPM", color: "#ff6b1f", text: "“walk forward” → diffusion", jerk: 187.5, before: 0.45, after: 0.38 },
+  { file: "wave_ar.bvh", label: "Wave · AR", color: "#3ddc84", text: "“wave” → AR Transformer", jerk: 56.1, before: 0.02, after: 0.02 },
+];
+---
+
+<section id="motion" class="border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="06 — MOTION" title="Text to motion," dim="exported as BVH.">
+      An 18-joint skeleton animated from text by an autoregressive Transformer or a diffusion model. The C++ motion
+      engine computes the kinematics, locks planted feet with two-bone IK, and writes BVH, played here by three.js.
+    </SectionHead>
+
+    <div class="mt-10 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
+      <div class="frame min-w-0 bg-panel/70">
+        <span class="corners"></span>
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
+          <span class="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">Viewport 05 — <span id="bvh-file" class="text-ink">{clips[0].file}</span></span>
+          <span id="bvh-meta" class="font-mono text-[11px] text-faint"></span>
+        </div>
+        <canvas id="bvh-canvas" data-base={asset("media/bvh/")} class="block aspect-[4/3] w-full cursor-grab touch-none" aria-label="Animated skeleton playing the selected BVH clip"></canvas>
+        <div class="grid grid-cols-2 border-t border-line sm:grid-cols-4" id="bvh-buttons" role="group" aria-label="Choose clip">
+          {clips.map((c, i) => (
+            <button type="button" data-file={c.file} data-color={c.color} aria-pressed={i === 0 ? "true" : "false"}
+              class="flex items-center justify-center gap-2 border-r border-b border-line px-2 py-2 font-mono text-[11px] tracking-[0.06em] text-muted uppercase transition-colors hover:text-ink aria-pressed:bg-ink aria-pressed:text-bg sm:border-b-0 [&:nth-child(2n)]:border-r-0 sm:[&:nth-child(2n)]:border-r sm:last:border-r-0">
+              <span class="size-2" style={`background:${c.color}`}></span>{c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <table class="w-full border-t border-line-strong text-left">
+          <thead class="font-mono text-[10px] tracking-[0.14em] text-faint uppercase">
+            <tr class="border-b border-line"><th class="py-2 font-normal">Clip</th><th class="py-2 font-normal">Jerk m/s³</th><th class="py-2 font-normal">Foot slide m/s</th></tr>
+          </thead>
+          <tbody class="font-mono text-[13px]">
+            {clips.map((c, i) => (
+              <tr data-clip={c.file} data-active={i === 0 ? "" : undefined} class="border-b border-line data-[active]:bg-ink data-[active]:text-bg">
+                <td class="py-3"><span class="mr-2 inline-block size-2" style={`background:${c.color}`}></span>{c.label}<br /><span class="text-[11px] opacity-60">{c.text}</span></td>
+                <td class="py-3">{c.jerk.toFixed(1)}</td>
+                <td class="py-3">{c.before.toFixed(2)} → <span class="text-ok">{c.after.toFixed(2)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p class="mt-4 text-[13px] leading-relaxed text-muted">
+          Foot locking cuts planted-foot sliding about 3× on the procedural and AR walks, but only 0.45 → 0.38 m/s on the
+          jittery DDPM walk, whose contacts keep releasing the lock. BVH stores joint rotations, so the clips here are as
+          generated; foot locking edits positions and is not in the file.
+        </p>
+        <p class="mt-3 font-mono text-[11px] text-faint">python export_bvh.py · <a href={treeUrl("src/animation")} class="underline decoration-line underline-offset-4 hover:text-ink">src/animation ↗</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const canvas = document.getElementById("bvh-canvas") as HTMLCanvasElement;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("#bvh-buttons [data-file]");
+  let viewer: { load(url: string, color: number): Promise<{ frames: number; seconds: number; joints: number }> } | null = null;
+
+  async function play(btn: HTMLButtonElement) {
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+    document.querySelectorAll<HTMLElement>("[data-clip]").forEach((r) => r.toggleAttribute("data-active", r.dataset.clip === btn.dataset.file));
+    document.getElementById("bvh-file")!.textContent = btn.dataset.file!;
+    if (!viewer) return;
+    const info = await viewer.load(`${canvas.dataset.base}${btn.dataset.file}`, parseInt(btn.dataset.color!.slice(1), 16));
+    document.getElementById("bvh-meta")!.textContent = `${info.frames} FRAMES · ${info.seconds.toFixed(1)} S · ${info.joints} JOINTS`;
+  }
+  buttons.forEach((b) => b.addEventListener("click", () => play(b)));
+
+  const io = new IntersectionObserver(async ([e]) => {
+    if (!e.isIntersecting) return;
+    io.disconnect();
+    const { mountBvhViewer } = await import("../scripts/bvh-viewer");
+    viewer = mountBvhViewer(canvas);
+    play(document.querySelector<HTMLButtonElement>('#bvh-buttons [aria-pressed="true"]')!);
+  }, { rootMargin: "300px" });
+  io.observe(canvas);
+</script>

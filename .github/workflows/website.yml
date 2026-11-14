@@ -9,6 +9,7 @@ on:
     paths:
       - "website/**"
       - "src/CAD_Harness/sdf/**"
+      - "src/animation/assets/**"
       - "src/CAD_Harness/cadquery/*.png"
       - "src/CAD_Harness/cadquery/*.svg"
       - "src/B-rep/results/**"

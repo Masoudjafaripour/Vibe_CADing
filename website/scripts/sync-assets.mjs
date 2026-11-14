@@ -44,3 +44,20 @@ mkdirSync(join(out, "gallery_3d"), { recursive: true });
 const glbs = readdirSync(models).filter((f) => f.endsWith(".glb"));
 for (const f of glbs) copyFileSync(join(models, f), join(out, "gallery_3d", f));
 console.log(`sync-assets: copied ${glbs.length} gallery models to public/media/gallery_3d`);
+
+// Mesh-simplification levels (vase) and BVH clips for the motion player
+const extra = [
+  ["src/CAD_Harness/sdf/assets/gallery_3d/lod", "lod", (f) => f.endsWith(".glb")],
+  ["src/animation/assets/bvh", "bvh", (f) => f.endsWith(".bvh")],
+];
+for (const [dir, name, keep] of extra) {
+  const from = join(repo, dir);
+  if (!existsSync(from)) {
+    console.error(`sync-assets: missing ${dir}`);
+    process.exit(1);
+  }
+  mkdirSync(join(out, name), { recursive: true });
+  const list = readdirSync(from).filter(keep);
+  for (const f of list) copyFileSync(join(from, f), join(out, name, f));
+  console.log(`sync-assets: copied ${list.length} files to public/media/${name}`);
+}

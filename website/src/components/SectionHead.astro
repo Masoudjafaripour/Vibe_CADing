@@ -1,0 +1,18 @@
+---
+interface Props {
+  fig: string;
+  title: string;
+  dim?: string; // second, muted line of the title
+}
+const { fig, title, dim } = Astro.props;
+---
+
+<div class="flex flex-wrap items-end justify-between gap-6">
+  <div>
+    <p class="fig mb-3">FIG. {fig}</p>
+    <h2 class="display max-w-3xl text-4xl leading-[0.95] font-semibold uppercase sm:text-5xl">
+      {title}{dim && <><br /><span class="text-muted">{dim}</span></>}
+    </h2>
+  </div>
+  <div class="max-w-sm text-[14px] leading-relaxed text-muted"><slot /></div>
+</div>

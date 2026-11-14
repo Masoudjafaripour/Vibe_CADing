@@ -95,7 +95,7 @@ export class SdfViewer {
   }
 
   private readTheme() {
-    this.bgTop = cssColor("--surface-2");
+    this.bgTop = cssColor("--panel");
     this.bgBottom = cssColor("--bg");
     this.dirty = true;
   }

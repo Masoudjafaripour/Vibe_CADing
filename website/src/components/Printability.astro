@@ -1,0 +1,54 @@
+---
+import { printChecks, printFixes, treeUrl } from "../data/site";
+import SectionHead from "./SectionHead.astro";
+
+const sev: Record<string, string> = { critical: "text-bad", supports: "text-warn", warning: "text-warn" };
+---
+
+<section id="printability" class="border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="04 — PRINTABILITY" title="The render looked fine." dim="The part wasn't.">
+      C++ checks (distance transforms, shell analysis, overhang and contact area) found four flaws in the gallery that
+      no render shows. Each went back to the model and was fixed.
+    </SectionHead>
+
+    <div class="mt-10 border-t border-line-strong">
+      <div class="hidden grid-cols-[120px_1fr_40px_1fr_1.2fr] gap-4 border-b border-line py-2 font-mono text-[10px] tracking-[0.14em] text-faint uppercase md:grid">
+        <span>Part</span><span>Found</span><span></span><span>After repair</span><span>Cause in the GLSL</span>
+      </div>
+      {printFixes.map((f) => (
+        <div class="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-line py-5 md:grid-cols-[120px_1fr_40px_1fr_1.2fr] md:items-center">
+          <p class="display text-xl font-semibold uppercase">{f.shape}</p>
+          <p><span class="display text-3xl font-semibold text-bad">{f.before}</span><br /><span class="font-mono text-[11px] text-muted">{f.beforeLabel}</span></p>
+          <p class="hidden font-mono text-faint md:block">→</p>
+          <p><span class="display text-3xl font-semibold text-ok">{f.after}</span><br /><span class="font-mono text-[11px] text-muted">{f.afterLabel}</span></p>
+          <p class="text-[13px] leading-relaxed text-muted">{f.cause}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+      <div>
+        <p class="label mb-3">What is checked</p>
+        <ul class="border-t border-line">
+          {printChecks.map(([name, how, s]) => (
+            <li class="grid grid-cols-[1fr_auto] gap-x-4 border-b border-line py-3 sm:grid-cols-[160px_1fr_auto]">
+              <span class="display text-base font-semibold uppercase">{name}</span>
+              <span class="order-3 col-span-2 text-[13px] text-muted sm:order-none sm:col-span-1">{how}</span>
+              <span class:list={["font-mono text-[10px] tracking-[0.12em] uppercase", sev[s]]}>{s}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="frame bg-panel/70 p-5 font-mono text-[12px] leading-relaxed">
+        <span class="corners"></span>
+        <p class="label mb-3">Feedback sent to the LLM</p>
+        <p class="text-muted">The shape renders, but it is not 3D-printable:</p>
+        <p class="mt-2">— A separate part floats above the ground near <span class="text-cyan">(x=0.50, y=-0.03, z=0.00)</span>:
+          it would print in mid-air. Connect it to the main body or lower it to touch <span class="text-cyan">y = -1</span>.</p>
+        <p class="mt-4 text-[11px] text-faint">python demo.py --prompt "…" --print-check</p>
+        <a href={treeUrl("src/CAD_Harness/sdf")} class="mt-3 inline-block text-[11px] text-muted underline decoration-line underline-offset-4 hover:text-ink">check_print.py ↗</a>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,84 @@
+---
+import lod from "../../../src/CAD_Harness/sdf/assets/gallery_3d/lod/lod.json";
+import { asset } from "../data/site";
+import SectionHead from "./SectionHead.astro";
+---
+
+<section id="simplify" class="grid-paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <SectionHead fig="05 — MESH" title="Ten times lighter," dim="same part.">
+      QEM edge collapse in C++ (Garland–Heckbert) with topology guards: collapses that would close a hole, split a part
+      or flip a face are refused, so the mesh stays watertight with the same genus.
+    </SectionHead>
+
+    <div class="mt-10 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
+      <div class="frame min-w-0 bg-panel/70">
+        <span class="corners"></span>
+        <div class="flex items-center justify-between border-b border-line px-3 py-2 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+          <span>Viewport 04 — vase, <span id="lod-label" class="text-ink"></span></span>
+          <span class="hidden sm:inline">Wireframe on</span>
+        </div>
+        <canvas id="lod-canvas" data-base={asset("media/lod/")} class="block aspect-[4/3] w-full cursor-grab touch-none" aria-label="Simplified vase mesh"></canvas>
+        <div class="border-t border-line px-4 py-4">
+          <input id="lod-slider" type="range" min="0" max={lod.levels.length - 1} step="1" value="0" class="w-full accent-[var(--signal)]" aria-label="Level of detail" />
+          <div class="mt-1 flex justify-between font-mono text-[10px] text-faint">
+            {lod.levels.map((l) => <span>{(l.triangles / 1000).toFixed(0)}k</span>)}
+          </div>
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <table class="w-full border-t border-line-strong text-left">
+          <thead class="font-mono text-[10px] tracking-[0.14em] text-faint uppercase">
+            <tr class="border-b border-line"><th class="py-2 font-normal">Triangles</th><th class="py-2 font-normal">File</th><th class="py-2 font-normal">Volume error</th><th class="py-2 font-normal">Topology</th></tr>
+          </thead>
+          <tbody class="font-mono text-[13px]">
+            {lod.levels.map((l, i) => (
+              <tr data-level={i} class="border-b border-line transition-colors data-[active]:bg-ink data-[active]:text-bg">
+                <td class="py-3">{l.triangles.toLocaleString("en-US")}</td>
+                <td class="py-3">{l.kb} KB</td>
+                <td class="py-3">{l.volume_error_pct.toFixed(2)}%</td>
+                <td class="py-3">{l.watertight ? "closed" : "open"} · g{l.genus}</td>
+              </tr>
+            ))}
+            <tr class="border-b border-line text-muted">
+              <td class="py-3">{lod.full_triangles.toLocaleString("en-US")}</td><td class="py-3" colspan="3">full marching-cubes mesh (reference)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="mt-4 text-[13px] leading-relaxed text-muted">
+          At 6,000 triangles (4% of the original) the volume is within 0.24%. Asking for 1,500 stops at about 5,600: past
+          that, every remaining collapse would break the thin twisted wall, so the simplifier refuses.
+        </p>
+        <p class="mt-3 font-mono text-[11px] text-faint">python to_stl.py vase.glsl vase.stl --simplify 6000 --glb vase.glb</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import lod from "../../../src/CAD_Harness/sdf/assets/gallery_3d/lod/lod.json";
+
+  const canvas = document.getElementById("lod-canvas") as HTMLCanvasElement;
+  const slider = document.getElementById("lod-slider") as HTMLInputElement;
+  const label = document.getElementById("lod-label")!;
+  let viewer: { load(url: string, wire?: boolean): Promise<{ triangles: number }> } | null = null;
+
+  async function show(i: number) {
+    const level = lod.levels[i];
+    label.textContent = `${level.triangles.toLocaleString("en-US")} triangles`;
+    document.querySelectorAll<HTMLElement>("[data-level]").forEach((r) => r.toggleAttribute("data-active", r.dataset.level === String(i)));
+    await viewer?.load(`${canvas.dataset.base}${level.file}`, true);
+  }
+  slider.addEventListener("input", () => show(Number(slider.value)));
+
+  const io = new IntersectionObserver(async ([e]) => {
+    if (!e.isIntersecting) return;
+    io.disconnect();
+    const { mountGlbViewer } = await import("../scripts/glb-viewer");
+    viewer = mountGlbViewer(canvas);
+    show(Number(slider.value));
+  }, { rootMargin: "300px" });
+  io.observe(canvas);
+  show(0);
+</script>

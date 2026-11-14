@@ -5,15 +5,18 @@ import Hero from "../components/Hero.astro";
 import Method from "../components/Method.astro";
 import Gallery from "../components/Gallery.astro";
 import Interactive from "../components/Interactive.astro";
-import Models3D from "../components/Models3D.astro";
+import Printability from "../components/Printability.astro";
+import Simplify from "../components/Simplify.astro";
+import Motion from "../components/Motion.astro";
+import Engine from "../components/Engine.astro";
 import Results from "../components/Results.astro";
 import Status from "../components/Status.astro";
 import Footer from "../components/Footer.astro";
 ---
 
 <Layout
-  title="Vibe-CADing: text to 3D geometry, with LLMs writing the shape as code"
-  description="LLMs write CAD code (CadQuery, build123d) or GLSL signed distance functions; the code runs, is validated, and errors are fed back for repair. Live WebGL demos and results."
+  title="Vibe-CADing: text in, printable geometry out"
+  description="LLMs write the shape as code (CadQuery, build123d or GLSL). A C++ engine meshes it, checks it for 3D printing and feeds every flaw back until the part is valid. Live 3D demos, motion, results."
 >
   <Nav />
   <main>
@@ -21,7 +24,10 @@ import Footer from "../components/Footer.astro";
     <Method />
     <Gallery />
     <Interactive />
-    <Models3D />
+    <Printability />
+    <Simplify />
+    <Motion />
+    <Engine />
     <Results />
     <Status />
   </main>

@@ -2,40 +2,34 @@
 import { author, bibtex, repoUrl } from "../data/site";
 ---
 
-<section id="cite" class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-  <div class="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
+<section id="cite" class="grid-paper border-b border-line">
+  <div class="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.3fr]">
     <div class="min-w-0">
-      <p class="eyebrow mb-3">Get started</p>
-      <h2 class="section-title">Run it yourself</h2>
-      <p class="mt-3 text-muted">The SDF demo runs without any LLM; add an API key to generate new shapes.</p>
-      <pre class="card mt-5 overflow-x-auto p-4 font-mono text-[12px] leading-relaxed"><code>git clone {repoUrl}
-cd Vibe_CADing/src/CAD_Harness/sdf
-pip install -r requirements.txt
-python demo.py --example snowman --gif
-
-export OPENAI_API_KEY=sk-...
+      <p class="fig mb-3">FIG. 10 — RUN IT</p>
+      <h2 class="display text-4xl leading-none font-semibold uppercase">Five commands.</h2>
+      <pre class="frame mt-6 overflow-x-auto bg-panel/80 p-4 font-mono text-[12px] leading-relaxed"><span class="corners"></span><code>git clone {repoUrl}
+cd Vibe_CADing && pip install ./src/geometry_engine
+cd src/CAD_Harness/sdf && pip install -r requirements.txt
+python demo.py --example snowman --gif --stl
 python demo.py --backend openai --model gpt-4o \
-  --prompt "a stylized dragon" --gif</code></pre>
+  --prompt "a stylized dragon" --print-check</code></pre>
     </div>
     <div class="min-w-0">
-      <p class="eyebrow mb-3">Citation</p>
-      <h2 class="section-title">Cite this project</h2>
-      <div class="card relative mt-5">
-        <button
-          id="copy-bibtex"
-          type="button"
-          class="absolute top-3 right-3 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs text-muted transition-colors hover:text-ink"
-        >Copy</button>
+      <p class="fig mb-3">FIG. 11 — CITE</p>
+      <h2 class="display text-4xl leading-none font-semibold uppercase">BibTeX.</h2>
+      <div class="frame relative mt-6 bg-panel/80">
+        <span class="corners"></span>
+        <button id="copy-bibtex" type="button" class="absolute top-3 right-3 border border-line-strong px-2.5 py-1 font-mono text-[11px] tracking-[0.1em] text-muted uppercase transition-colors hover:text-ink">Copy</button>
         <pre class="overflow-x-auto p-4 pr-20 font-mono text-[12px] leading-relaxed"><code id="bibtex">{bibtex}</code></pre>
       </div>
     </div>
   </div>
 </section>
 
-<footer class="border-t border-line">
-  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-muted sm:px-6">
+<footer>
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-6 font-mono text-[11px] tracking-[0.08em] text-muted uppercase sm:px-6">
     <p>© 2025–2026 <a href={author.url} class="hover:text-ink">{author.name}</a> · MIT License</p>
-    <a href={repoUrl} class="hover:text-ink">github.com/Masoudjafaripour/Vibe_CADing</a>
+    <a href={repoUrl} class="hover:text-ink">github.com/Masoudjafaripour/Vibe_CADing ↗</a>
   </div>
 </footer>
 

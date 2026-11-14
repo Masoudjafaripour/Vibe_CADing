@@ -1,0 +1,102 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans-condensed/500.css";
+@import "@fontsource/ibm-plex-sans-condensed/600.css";
+@import "@fontsource/ibm-plex-sans-condensed/700.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/* "CAD viewport" theme: graphite + blueprint grid (dark), drafting paper (light). */
+:root {
+  --bg: #f3f0e8;
+  --panel: #fbf9f4;
+  --ink: #12151a;
+  --muted: #5d6573;
+  --faint: #8b93a1;
+  --line: rgba(18, 21, 26, 0.14);
+  --line-strong: rgba(18, 21, 26, 0.32);
+  --grid: rgba(37, 84, 170, 0.07);
+  --grid-major: rgba(37, 84, 170, 0.13);
+  --signal: #e8590c;
+  --cyan: #0b74b8;
+  --ok: #1d8a4b;
+  --bad: #c92a2a;
+  --warn: #b26a00;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0c0f;
+    --panel: #0f1318;
+    --ink: #e6eaf0;
+    --muted: #8f99a8;
+    --faint: #5f6977;
+    --line: rgba(230, 234, 240, 0.09);
+    --line-strong: rgba(230, 234, 240, 0.22);
+    --grid: rgba(90, 150, 255, 0.045);
+    --grid-major: rgba(90, 150, 255, 0.09);
+    --signal: #ff6b1f;
+    --cyan: #4cc3ff;
+    --ok: #3ddc84;
+    --bad: #ff5252;
+    --warn: #ffb020;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-display: "IBM Plex Sans Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-signal: var(--signal);
+  --color-cyan: var(--cyan);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --color-warn: var(--warn);
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 4rem; }
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Blueprint grid: 24 px minor, 120 px major */
+.grid-paper {
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  background-position: -1px -1px;
+}
+
+/* Frame with corner registration marks */
+.frame { position: relative; border: 1px solid var(--line); }
+.frame::before, .frame::after, .frame > .corners::before, .frame > .corners::after {
+  content: ""; position: absolute; width: 12px; height: 12px; border-color: var(--line-strong); pointer-events: none;
+}
+.frame::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
+.frame::after { top: -1px; right: -1px; border-top: 1px solid; border-right: 1px solid; }
+.frame > .corners::before { bottom: -1px; left: -1px; border-bottom: 1px solid; border-left: 1px solid; }
+.frame > .corners::after { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
+
+.label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.fig { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--signal); }
+.display { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+@keyframes blink { 50% { opacity: 0; } }
+.caret { display: inline-block; width: 0.55em; height: 1.05em; background: var(--signal); vertical-align: -0.15em; animation: blink 1.1s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } html { scroll-behavior: auto; } }

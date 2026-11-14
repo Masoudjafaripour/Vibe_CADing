@@ -127,3 +127,40 @@ export const modules: { name: string; status: Status; path: string; what: string
   { name: "B-rep retrieval (RAG)", status: "stub", path: "src/B-rep", what: "Planned topology/geometry embeddings for retrieval" },
   { name: "Validator / retrainer, web app", status: "stub", path: "src/pipeline", what: "Planned manufacturability checks and UI/API" },
 ];
+
+// ---- Added with the CAD-viewport redesign (numbers from the module READMEs / tests) ----
+
+export const printFixes = [
+  { shape: "Chain", before: "10 mm", beforeLabel: "middle link floats above the plate", after: "3 / 3", afterLabel: "links touch the plate", cause: "Links tilted ±45°: still interlocked, and every link now rests on the plate." },
+  { shape: "Gyroid", before: "19", beforeLabel: "loose fragments", after: "1", afterLabel: "connected lattice", cause: "A thin sheet became a channel network that thins out before the sphere's surface." },
+  { shape: "Rook", before: "23 mm²", beforeLabel: "bed contact on a 40 mm base", after: "1,436 mm²", afterLabel: "flat foot on the plate", cause: "The body's rounded end and smooth blend bulged 1 mm below the foot." },
+  { shape: "Vase", before: "clipped", beforeLabel: "wall leaks below the floor", after: "watertight", afterLabel: "closed, inside the box", cause: "The outer wall had no bottom cut." },
+];
+
+export const printChecks = [
+  ["Floating parts", "Lowest point of every separate shell vs. the build plate", "critical"],
+  ["Thin walls", "Exact distance transform + morphological opening, by volume", "critical"],
+  ["Watertight · size", "Edge-manifold check; bounding box vs. a 220 × 220 × 250 mm bed", "critical"],
+  ["Overhangs", "Faces tilted more than 45° from vertical, off the plate", "supports"],
+  ["Bed contact", "Flat area on the plate vs. the part's footprint", "warning"],
+];
+
+export const speedups = [
+  { step: "Foot locking (two-bone IK)", py: "352 ms", cpp: "1.0 ms", x: 341, area: "motion" },
+  { step: "Marching cubes, 128³", py: "3,693 ms", cpp: "16 ms", x: 228, area: "geometry" },
+  { step: "SDF sampling, 128³", py: "3,336 ms", cpp: "38 ms", x: 88, area: "geometry" },
+  { step: "Stance sliding metric", py: "19 ms", cpp: "0.4 ms", x: 43, area: "motion" },
+  { step: "Forward kinematics", py: "299 ms", cpp: "15 ms", x: 19, area: "motion" },
+];
+
+export const engineModules = [
+  { name: "vibecad_geom", items: ["Marching cubes (SDF → mesh)", "Printability: EDT wall thickness, overhangs, floating parts", "QEM simplification · Taubin smoothing", "STL read / write · glTF export"] },
+  { name: "vibecad_motion", items: ["Forward kinematics", "Foot contact + two-bone IK foot locking", "Jerk / sliding metrics", "BVH export (Blender, Maya, Unity)"] },
+];
+
+export const newModules: { name: string; status: Status; path: string; what: string }[] = [
+  { name: "C++ geometry engine", status: "working", path: "src/geometry_engine", what: "Marching cubes, printability analysis, QEM simplification, STL / glTF export (pybind11)" },
+  { name: "C++ motion engine", status: "working", path: "src/geometry_engine", what: "FK, IK foot locking, motion metrics, BVH export; matches NumPy to 1e-12" },
+  { name: "Text → motion (AR, DDPM)", status: "working", path: "src/animation", what: "18-joint skeleton animation from text; procedural, AR Transformer and diffusion" },
+  { name: "MLflow tracking", status: "working", path: "src/CAD_Harness/sdf", what: "Every LLM attempt, prompt, error and output logged with --track" },
+];

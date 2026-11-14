@@ -40,6 +40,15 @@ shows the current results.
   `scripts/sync-assets.mjs` copies the `.glb` files; regenerate them with
   `python gallery.py --glb --publish` in `src/CAD_Harness/sdf`.
 
+- **Mesh simplification** (`Simplify.astro`): the vase at three detail levels from
+  `src/CAD_Harness/sdf/assets/gallery_3d/lod/` (`lod.json` holds triangle counts and
+  volume errors).
+- **Motion** (`Motion.astro`, `src/scripts/bvh-viewer.ts`): BVH clips exported by the
+  C++ motion engine (`src/animation/assets/bvh/`), played with three.js `BVHLoader`.
+
+The look ("CAD viewport": graphite / drafting paper, IBM Plex, hairline frames) lives in
+`src/styles/blueprint.css`; colours are CSS variables with a light and a dark set.
+
 ## Content
 
 Text, gallery captions, recorded runs and the module status table live in
