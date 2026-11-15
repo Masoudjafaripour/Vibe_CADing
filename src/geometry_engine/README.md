@@ -259,3 +259,12 @@ print(asm["ok"], len(asm["placed"]), asm["notes"])   # True 7 ['no collisions be
 
 Tests: `test_csg`, `test_families` (genus of every family), `test_assembly` (placement, copies, collisions,
 feedback). See [`../live_cad/README.md`](../live_cad/README.md) for the method and the model evaluation.
+
+## Text-to-motion inference (C++ and WebAssembly)
+
+[`src/nn.cpp`](src/nn.cpp) (linear, LayerNorm, GroupNorm, convolutions as GEMM) and
+[`src/motion_models.cpp`](src/motion_models.cpp) run the AR Transformer and the DDPM of
+[`../animation`](../animation/) without PyTorch, matching it to about 1e-6. The AR model is 3.5× faster than
+single-threaded PyTorch. [`wasm/build_motion.sh`](wasm/build_motion.sh) builds the browser version (231 KB) used
+by the website's Motion section. Tests: `test_motion_models`, plus `src/animation/test_motion_models.py` against
+PyTorch. `-DVIBECAD_NATIVE=OFF` builds a portable module (no `-march=native`).

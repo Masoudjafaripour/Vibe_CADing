@@ -19,9 +19,15 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 # Skeletal motion: FK, foot locking (IK), metrics, BVH export
-add_library(vibecad_motion_core src/motion.cpp src/bvh.cpp)
+add_library(vibecad_motion_core src/motion.cpp src/bvh.cpp src/nn.cpp src/motion_models.cpp src/json.cpp)
 target_include_directories(vibecad_motion_core PUBLIC include)
 target_compile_options(vibecad_motion_core PUBLIC $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>)
+# The motion models' GEMMs are compute-bound: build them for this CPU's vector units (AVX2 / AVX-512)
+# unless a portable binary is wanted (-DVIBECAD_NATIVE=OFF), like llama.cpp's GGML_NATIVE.
+option(VIBECAD_NATIVE "Optimize the motion models for the building CPU (-march=native)" ON)
+if(VIBECAD_NATIVE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  set_source_files_properties(src/nn.cpp src/motion_models.cpp PROPERTIES COMPILE_OPTIONS "-march=native")
+endif()
 
 # Python module (built by `pip install .` via scikit-build-core, or -DVIBECAD_PYTHON=ON)
 if(SKBUILD)  # set by scikit-build-core (to a version number, so normalise to ON/OFF)
@@ -73,3 +79,8 @@ add_test(NAME families COMMAND test_families)
 add_executable(test_assembly tests/test_assembly.cpp)
 target_link_libraries(test_assembly PRIVATE vibecad_geometry)
 add_test(NAME assembly COMMAND test_assembly)
+
+add_executable(test_motion_models tests/test_motion_models.cpp)
+target_link_libraries(test_motion_models PRIVATE vibecad_motion_core)
+target_compile_definitions(test_motion_models PRIVATE VIBECAD_MOTION_WEIGHTS="${CMAKE_CURRENT_SOURCE_DIR}/../../website/public/motion")
+add_test(NAME motion_models COMMAND test_motion_models)

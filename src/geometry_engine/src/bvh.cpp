@@ -3,21 +3,21 @@
 #include <cmath>
 #include <fstream>
 #include <functional>
+#include <sstream>
 #include <stdexcept>
 
 #include "vibecad/motion.hpp"
+#include "vibecad/motion_models.hpp"
 
 namespace vibecad::motion {
+namespace {
 
-void write_bvh(const std::string& path, const Skeleton& skel, const double* root, const double* angles, int frames,
-               double fps) {
+void emit_bvh(std::ostream& out, const Skeleton& skel, const double* root, const double* angles, int frames, double fps) {
     const int J = skel.size();
     std::vector<std::vector<int>> children(J);
     for (int j = 0; j < J; ++j)
         if (skel.parents[j] >= 0) children[skel.parents[j]].push_back(j);
 
-    std::ofstream out(path);
-    if (!out) throw std::runtime_error("cannot open " + path);
     out.setf(std::ios::fixed);
     out.precision(6);
 
@@ -54,6 +54,21 @@ void write_bvh(const std::string& path, const Skeleton& skel, const double* root
         }
         out << "\n";
     }
+}
+
+}  // namespace
+
+void write_bvh(const std::string& path, const Skeleton& skel, const double* root, const double* angles, int frames,
+               double fps) {
+    std::ofstream out(path);
+    if (!out) throw std::runtime_error("cannot open " + path);
+    emit_bvh(out, skel, root, angles, frames, fps);
+}
+
+std::string bvh_text(const Skeleton& skel, const double* root, const double* angles, int frames, double fps) {
+    std::ostringstream out;
+    emit_bvh(out, skel, root, angles, frames, fps);
+    return out.str();
 }
 
 }  // namespace vibecad::motion

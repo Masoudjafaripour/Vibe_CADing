@@ -223,6 +223,61 @@ walks, but only from 0.45 to 0.38 m/s on the DDPM walk, whose jittery contacts r
 the lock more often. BVH stores joint rotations, so it holds the clip as generated;
 foot locking edits joint positions and is not part of the file.
 
+## C++ inference: the generative models without PyTorch, in the browser
+
+Both trained models are re-implemented for inference in plain C++
+([`motion_models.cpp`](../geometry_engine/src/motion_models.cpp), [`nn.cpp`](../geometry_engine/src/nn.cpp)):
+no framework, no BLAS. The same code is compiled to WebAssembly, so the website's Motion section turns
+typed text into motion in the visitor's browser, with no GPU and no server.
+
+```bash
+python export_weights.py         # outputs/{ar,diffusion}.pt -> website/public/motion/*.vcw (2.5 + 4.5 MB)
+python test_motion_models.py     # C++ vs PyTorch, layer by layer and end to end, plus timings
+```
+
+```python
+import vibecad_motion as vm
+m = vm.MotionModel.load("website/public/motion/diffusion.vcw")
+clip = m.generate("wave hello", seed=1, steps=25)   # root (90, 3), angles (90, 18, 3), BVH text, ms
+```
+
+- **AR Transformer:** pre-norm encoder layers (LayerNorm, 4-head causal attention, ReLU MLP). Generation keeps a
+  key/value cache, so each new frame costs one token through the layers instead of recomputing the whole
+  sequence as `MotionTransformer.generate` does. With causal attention the outputs are identical.
+- **Diffusion:** the 1D U-Net (GroupNorm, FiLM, strided and transposed convolutions) and the DDPM sampler with
+  classifier-free guidance. The conditional and unconditional branches run as one batch. Convolutions are
+  im2col + a register-blocked GEMM, written so the compiler vectorizes it (SSE/AVX natively, SIMD128 in
+  WebAssembly). `steps < 100` samples an evenly spaced subset of timesteps (respacing).
+- **Portable randomness:** a splitmix64 + Box–Muller generator, so a seed gives the same motion in Python,
+  native code and the browser (the WebAssembly output matches native to 4 decimals).
+
+**Matches PyTorch** (`test_motion_models.py`, max absolute difference in normalized features):
+
+| Check | max \|C++ − torch\| |
+|---|---|
+| AR forward pass, 41 tokens | 7e-7 |
+| AR 90-frame rollout | 7e-6 |
+| Text → root + joint angles ("wave hello") | 1e-6 |
+| Denoiser at t = 0, 50, 99 and without text | ≤ 2e-6 |
+| 100-step sampling, same noise fed to both | 1.2e-5 |
+
+**Speed** for one 3 s clip (90 frames), one CPU thread (`-march=native`; PyTorch's default 64 threads takes
+20 to 40 s here on these tiny models):
+
+| Model | PyTorch, 1 thread | C++ | C++ in WebAssembly (Chrome) |
+|---|---|---|---|
+| AR Transformer | 148 ms | **42 ms** (3.5× faster, KV cache) | 50 to 75 ms |
+| Diffusion, 100 steps | **483 ms** | 812 ms | 1.5 s |
+| Diffusion, 25 steps | n/a | 195 ms | 0.4 s |
+
+PyTorch's convolutions use oneDNN's AVX-512 kernels; the hand-written GEMM is within 2× of them. Fewer
+diffusion steps cost nothing measurable here. Over 3 commands × 8 seeds, 100, 50, 25 and 10 steps all give the
+right motion 24/24 (`metrics.classify`), with the same jerk (131 to 136 m/s³) and foot sliding (1.25 m/s), so
+the website samples 25 steps by default.
+
+The models know 13 words (`walk`, `wave`, `raise`, `arms`, …) from their 600 training clips. Unknown words are
+dropped, and text with no known word is rejected with the list.
+
 ## Next steps the structure supports
 
 - **VQ-VAE motion tokens:** encode clips into discrete tokens and swap the AR `head` for token logits, giving a PixelCNN/GPT-style sampler with real diversity.

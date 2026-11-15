@@ -3,6 +3,9 @@ import { asset, treeUrl } from "../data/site";
 import SectionHead from "./SectionHead.astro";
 
 // From `python export_bvh.py` (src/animation): jerk and planted-foot sliding before -> after C++ foot locking.
+// Phrases the models were trained on (src/animation/motions.py COMMANDS); they know these 13 words.
+const phrases = ["walk forward", "go forward", "wave hello", "wave your right hand", "raise both arms", "arms up"];
+
 const clips = [
   { file: "walk_procedural.bvh", label: "Walk · procedural", color: "#8f99a8", text: "hand-written baseline", jerk: 52.4, before: 0.47, after: 0.15 },
   { file: "walk_ar.bvh", label: "Walk · AR", color: "#4cc3ff", text: "“walk forward” → AR Transformer", jerk: 80.2, before: 0.45, after: 0.14 },
@@ -17,6 +20,8 @@ const clips = [
       The same pipeline extends to animation. An 18-joint skeleton is animated from text by an{" "}
       <em class="text-ink">autoregressive Transformer</em> or a <em class="text-ink">diffusion model</em>. The C++ motion
       engine computes the kinematics, locks planted feet with two-bone IK and writes standard BVH, played here by three.js.
+      Type your own motion under the viewport: both trained models also run <em class="text-ink">in your browser</em>, re-implemented
+      in C++ and compiled to WebAssembly.
     </SectionHead>
 
     <div class="mt-10 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
@@ -34,6 +39,29 @@ const clips = [
               <span class="size-2" style={`background:${c.color}`}></span>{c.label}
             </button>
           ))}
+        </div>
+        <!-- live: text -> motion with the C++ models compiled to WebAssembly -->
+        <div class="border-t border-line p-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <label for="mo-text" class="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">Type a motion</label>
+            <input id="mo-text" value="wave hello" maxlength="80" autocomplete="off"
+              class="min-w-0 flex-1 basis-40 border border-line-strong bg-bg px-2 py-1.5 font-mono text-[12px] outline-none focus:border-signal" />
+            <select id="mo-method" aria-label="Model" class="border border-line-strong bg-bg px-2 py-1.5 font-mono text-[11px]">
+              <option value="ar">AR Transformer · 2.5 MB</option>
+              <option value="diffusion:25">Diffusion, 25 steps · 4.5 MB</option>
+              <option value="diffusion:100">Diffusion, 100 steps · 4.5 MB</option>
+            </select>
+            <button id="mo-run" type="button" class="border border-signal bg-signal px-3 py-1.5 font-mono text-[11px] tracking-[0.1em] text-white uppercase hover:opacity-90 disabled:opacity-40">Generate</button>
+            <button id="mo-bvh" type="button" disabled class="border border-line-strong px-3 py-1.5 font-mono text-[11px] tracking-[0.1em] uppercase hover:border-ink disabled:cursor-not-allowed disabled:opacity-40">BVH</button>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            {phrases.map((p) => (
+              <button type="button" data-phrase={p} class="border border-line px-2 py-0.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink">{p}</button>
+            ))}
+          </div>
+          <p id="mo-status" class="mt-2 font-mono text-[11px] leading-relaxed text-faint" aria-live="polite">
+            Runs in your browser: the trained models, re-implemented in C++ and compiled to WebAssembly. No GPU, no server.
+          </p>
         </div>
       </div>
 
@@ -77,6 +105,58 @@ const clips = [
     document.getElementById("bvh-meta")!.textContent = `${info.frames} FRAMES · ${info.seconds.toFixed(1)} S · ${info.joints} JOINTS`;
   }
   buttons.forEach((b) => b.addEventListener("click", () => play(b)));
+
+  // ---- live text -> motion (C++ models in WebAssembly, in a worker) ----
+  const moText = document.getElementById("mo-text") as HTMLInputElement;
+  const moMethod = document.getElementById("mo-method") as HTMLSelectElement;
+  const moRun = document.getElementById("mo-run") as HTMLButtonElement;
+  const moBvh = document.getElementById("mo-bvh") as HTMLButtonElement;
+  const moStatus = (t: string) => (document.getElementById("mo-status")!.textContent = t);
+  const site = canvas.dataset.base!.replace(/media\/bvh\/$/, "");
+  let worker: Worker | null = null;
+  let lastBvh = "", lastName = "";
+  document.querySelectorAll<HTMLButtonElement>("[data-phrase]").forEach((b) =>
+    b.addEventListener("click", () => { moText.value = b.dataset.phrase!; moRun.click(); }));
+  moText.addEventListener("keydown", (e) => { if (e.key === "Enter") moRun.click(); });
+
+  moRun.addEventListener("click", () => {
+    const text = moText.value.trim();
+    if (!text) return;
+    const [method, steps] = moMethod.value.split(":");
+    const seed = method === "ar" ? 0 : Math.floor(Math.random() * 1e6);
+    moRun.disabled = true;
+    worker ??= new Worker(new URL("../scripts/motion-worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = async (e) => {
+      const m = e.data;
+      if (m.type === "progress") return moStatus(m.text);
+      moRun.disabled = false;
+      if (!m.ok) return moStatus(m.error);
+      lastBvh = m.bvh;
+      lastName = `${text.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_${method}`;
+      moBvh.disabled = false;
+      if (!viewer) viewer = (await import("../scripts/bvh-viewer")).mountBvhViewer(canvas);
+      buttons.forEach((b) => b.setAttribute("aria-pressed", "false"));
+      document.querySelectorAll<HTMLElement>("[data-clip]").forEach((r) => r.removeAttribute("data-active"));
+      const url = URL.createObjectURL(new Blob([m.bvh], { type: "text/plain" }));
+      const info = await viewer.load(url, method === "ar" ? 0x4cc3ff : 0xff6b1f);
+      URL.revokeObjectURL(url);
+      document.getElementById("bvh-file")!.textContent = `“${text}” · live`;
+      document.getElementById("bvh-meta")!.textContent = `${info.frames} FRAMES · ${info.seconds.toFixed(1)} S · ${info.joints} JOINTS`;
+      const label = method === "ar" ? "AR Transformer" : `diffusion, ${steps} steps, seed ${seed}`;
+      moStatus(`${label}: ${m.ms.toFixed(0)} ms in C++/WebAssembly · words used: ${m.used.join(" ")} · pelvis travels ${m.travel.toFixed(1)} m. ` +
+        `Known words: ${m.words.join(", ")}.`);
+    };
+    worker.postMessage({ base: site, method, text, seed, steps: Number(steps ?? 0) });
+  });
+
+  moBvh.addEventListener("click", () => {
+    const url = URL.createObjectURL(new Blob([lastBvh], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${lastName || "motion"}.bvh`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
 
   const io = new IntersectionObserver(async ([e]) => {
     if (!e.isIntersecting) return;

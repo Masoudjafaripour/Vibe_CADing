@@ -5,6 +5,7 @@
 #include <pybind11/stl.h>
 
 #include "vibecad/motion.hpp"
+#include "vibecad/motion_models.hpp"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -103,4 +104,71 @@ PYBIND11_MODULE(vibecad_motion, m) {
             write_bvh(path, s, root.data(), angles.data(), int(root.shape(0)), fps);
         },
         "path"_a, "root"_a, "angles"_a, "parents"_a, "offsets"_a, "names"_a, "fps"_a);
+
+    // ---- text -> motion models (C++ inference of src/animation's AR Transformer and DDPM) ----
+    using F32 = py::array_t<float, py::array::c_style | py::array::forcecast>;
+    auto to_f32 = [](const std::vector<float>& v, int rows, int cols) {
+        F32 a({rows, cols});
+        std::copy(v.begin(), v.end(), a.mutable_data());
+        return a;
+    };
+    py::class_<MotionModel>(m, "MotionModel", "A trained text-to-motion model loaded from a .vcw file (export_weights.py).")
+        .def_static("load", [](const std::string& path) { return MotionModel::load_file(path); }, "path"_a)
+        .def_property_readonly("method", &MotionModel::method)
+        .def_property_readonly("vocabulary", &MotionModel::vocabulary)
+        .def_property_readonly("frames", &MotionModel::frames)
+        .def_property_readonly("features", &MotionModel::features)
+        .def("encode", &MotionModel::encode, "text"_a)
+        .def(
+            "generate",
+            [](const MotionModel& self, const std::string& text, uint64_t seed, int steps) {
+                GeneratedClip c;
+                {
+                    py::gil_scoped_release release;
+                    c = self.generate(text, seed, steps);
+                }
+                const int J = self.skeleton().size();
+                Array root({c.frames, 3}), angles({c.frames, J, 3});
+                std::copy(c.root.begin(), c.root.end(), root.mutable_data());
+                std::copy(c.angles.begin(), c.angles.end(), angles.mutable_data());
+                return py::dict("root"_a = root, "angles"_a = angles, "ms"_a = c.ms, "words"_a = c.words,
+                                "bvh"_a = bvh_text(self.skeleton(), c.root.data(), c.angles.data(), c.frames, self.fps()));
+            },
+            "text"_a, "seed"_a = 0, "steps"_a = 0, "text -> dict(root (T, 3), angles (T, J, 3), ms, words, bvh).")
+        .def(
+            "sample",
+            [=](const MotionModel& self, const std::vector<int>& words, uint64_t seed, int steps) {
+                return to_f32(self.sample(words, seed, steps), self.frames(), self.features());
+            },
+            "words"_a, "seed"_a = 0, "steps"_a = 0, "Normalized features (T, F) for word ids, as the PyTorch models output.");
+    py::class_<ArModel, MotionModel>(m, "ArModel")
+        .def(
+            "forward",
+            [=](const ArModel& self, const std::vector<int>& words, const F32& frames) {
+                if (frames.ndim() != 2 || frames.shape(1) != self.features()) throw py::value_error("frames must be (T, F)");
+                const int t = int(frames.shape(0));
+                return to_f32(self.forward(words, std::vector<float>(frames.data(), frames.data() + frames.size()), t), t + 1,
+                              self.features());
+            },
+            "words"_a, "frames"_a, "MotionTransformer.forward: words + frames (T, F) -> (T + 1, F).");
+    py::class_<DiffusionModel, MotionModel>(m, "DiffusionModel")
+        .def(
+            "denoise",
+            [=](const DiffusionModel& self, const F32& x, int t, const std::vector<int>& words) {
+                if (x.ndim() != 2 || x.shape(1) != self.features()) throw py::value_error("x must be (T, F)");
+                return to_f32(self.denoise(std::vector<float>(x.data(), x.data() + x.size()), t, words), int(x.shape(0)),
+                              self.features());
+            },
+            "x"_a, "t"_a, "words"_a, "MotionDenoiser.forward: x_t (T, F), t, words -> x0_hat (T, F).")
+        .def(
+            "sample_with_noise",
+            [=](const DiffusionModel& self, const std::vector<int>& words, const F32& noise, float guidance) {
+                if (noise.ndim() != 3) throw py::value_error("noise must be (draws, T, F)");
+                std::vector<std::vector<float>> n;
+                const size_t per = size_t(noise.shape(1)) * noise.shape(2);
+                for (py::ssize_t k = 0; k < noise.shape(0); ++k) n.emplace_back(noise.data() + k * per, noise.data() + (k + 1) * per);
+                return to_f32(self.sample_with_noise(words, n, guidance), self.frames(), self.features());
+            },
+            "words"_a, "noise"_a, "guidance"_a = 2.0f, "GaussianDiffusion.sample with the given noise draws.")
+        .def_readwrite("guidance", &DiffusionModel::guidance);
 }
