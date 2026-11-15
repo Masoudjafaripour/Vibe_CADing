@@ -39,7 +39,10 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
           </div>
           <button id="live-run" type="button" class:list={[btn, "border-signal bg-signal text-white hover:border-signal hover:opacity-90"]}>Generate</button>
         </div>
-        <button id="live-replay" type="button" class:list={[btn, "mt-3"]}>No download: run a recorded answer</button>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <button id="live-edit" type="button" disabled title="Apply the text above as a change to the part in the viewport, e.g. &quot;make it 8 holes&quot;" class:list={[btn]}>Change current part</button>
+          <button id="live-replay" type="button" class:list={[btn]}>No download: recorded answer</button>
+        </div>
         <div class="mt-3 flex flex-wrap items-center gap-3 border border-warn/40 bg-warn-soft/60 p-3">
           <p class="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
             <span class="mr-1 font-mono text-[11px] tracking-[0.1em] text-warn uppercase">Heads-up</span>
@@ -86,6 +89,21 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
         </div>
       </div>
     </div>
+
+    <!-- library: everything made so far, kept in this browser -->
+    <div class="frame mt-5 bg-panel/60 p-4 sm:p-5">
+      <span class="corners"></span>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <span class="label">Your parts and assemblies <span class="normal-case tracking-normal text-faint">· saved in this browser only</span></span>
+        <div class="flex gap-4 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+          <button id="lib-export" type="button" class="tracking-[0.1em] uppercase hover:text-ink">Export</button>
+          <label class="cursor-pointer hover:text-ink">Import<input id="lib-import" type="file" accept="application/json,.json" class="hidden" /></label>
+          <button id="lib-clear" type="button" class="tracking-[0.1em] uppercase hover:text-bad">Clear</button>
+        </div>
+      </div>
+      <ul id="lib-list" class="mt-3 flex flex-wrap gap-1.5"></ul>
+    </div>
+
     <!-- assembly: the parts made above, put together from a text instruction -->
     <div class="mt-12 grid gap-6 lg:grid-cols-[1fr_1fr] lg:items-end">
       <h3 class="display text-2xl leading-tight font-semibold">Then assemble them</h3>
@@ -102,7 +120,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
           <button id="asm-demo" type="button" class="font-mono text-[11px] tracking-[0.1em] text-muted uppercase hover:text-ink">Load demo parts</button>
         </div>
         <ul id="asm-parts" class="mt-2 flex min-h-[2.25rem] flex-wrap gap-1.5">
-          <li id="asm-none" class="py-1 text-[12px] text-faint">Generate or replay parts above; each good one lands here.</li>
+          <li id="asm-none" class="py-1 text-[12px] text-faint">Generate or replay parts above, or add them from your library; each good one lands here.</li>
         </ul>
         <label for="asm-prompt" class="label mt-5">Instruction</label>
         <textarea id="asm-prompt" rows="2" maxlength="200" class="mt-2 w-full resize-none border border-line-strong bg-bg p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-signal">{assembly.demo.instructions[0]}</textarea>
@@ -111,9 +129,10 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
             <button type="button" data-suggest={s} class="border border-line px-2 py-1 text-left text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink">{s}</button>
           ))}
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
           <button id="asm-run" type="button" class:list={[btn, "border-signal bg-signal text-white hover:border-signal hover:opacity-90"]}>Assemble</button>
-          <button id="asm-replay" type="button" class:list={[btn]}>No download: recorded demo</button>
+          <button id="asm-edit" type="button" disabled title="Apply the instruction as a change to the assembly in the viewport, e.g. &quot;remove the nuts&quot;" class:list={[btn, "px-2"]}>Change current</button>
+          <button id="asm-replay" type="button" class:list={[btn, "px-2"]}>Recorded demo</button>
         </div>
         <div class="mt-5 border-t border-line pt-4">
           <p id="asm-status" class="min-h-[1.25rem] font-mono text-[11px] text-muted" aria-live="polite">Uses the model chosen above.</p>
@@ -162,29 +181,56 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
   import recordedAssembly from "../../../src/live_cad/recorded_assembly.json";
   import {
     generateAssembly, generatePart, loadGeometryEngine, loadModel, modelLoaded, unloadModel, webgpuStatus,
-    type AssemblyAttempt, type Attempt, type BuildResult, type PartSpecs,
+    type AssemblyAttempt, type Attempt, type BuildResult, type PartEdit, type PartSpecs,
   } from "../scripts/live-cad";
+  import { addToLibrary, clearLibrary, exportLibrary, importLibrary, loadLibrary, removeFromLibrary, type LibraryItem } from "../scripts/library";
 
+  type Viewer = { show(p: Float32Array, i: Uint32Array, c: Float32Array): void };
   const $ = (id: string) => document.getElementById(id)!;
+  const button = (id: string) => $(id) as HTMLButtonElement;
   const canvas = $("live-canvas") as HTMLCanvasElement;
   const promptBox = $("live-prompt") as HTMLTextAreaElement;
   const modelSel = $("live-model") as HTMLSelectElement;
-  const runBtn = $("live-run") as HTMLButtonElement;
-  const replayBtn = $("live-replay") as HTMLButtonElement;
-  const stlBtn = $("live-stl") as HTMLButtonElement;
+  const runBtn = button("live-run"), editBtn = button("live-edit"), replayBtn = button("live-replay"), stlBtn = button("live-stl");
+  const unloadBtn = button("live-unload");
+  const asmCanvas = $("asm-canvas") as HTMLCanvasElement;
+  const asmPrompt = $("asm-prompt") as HTMLTextAreaElement;
+  const asmRun = button("asm-run"), asmEdit = button("asm-edit"), asmReplay = button("asm-replay"), asmStl = button("asm-stl");
   const status = (t: string) => ($("live-status").textContent = t);
+  const asmStatus = (t: string) => ($("asm-status").textContent = t);
   const progress = (f: number) => (($("live-progress") as HTMLElement).style.width = `${Math.round(f * 100)}%`);
-  let viewer: { show(p: Float32Array, i: Uint32Array, c: Float32Array): void } | null = null;
-  let busy = false;
-  let gpuF16 = true;
+  const pretty = (s: string) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
+  const compact = (s: string) => { try { return JSON.stringify(JSON.parse(s)); } catch { return s; } };
 
-  document.querySelectorAll<HTMLButtonElement>("#live-suggest [data-suggest]").forEach((b) =>
-    b.addEventListener("click", () => (promptBox.value = b.dataset.suggest!)));
+  let viewer: Viewer | null = null, asmViewer: Viewer | null = null;
+  let busy = false, gpuOk = false, gpuF16 = true;
+  // What is in each viewport now: the target of "Change current".
+  let currentPart: (PartEdit & { name: string }) | null = null;
+  let currentAssembly: string | null = null;
 
-  function verdictClass(v: string) {
-    return v === "printable" ? "text-ok" : v === "printable with supports" ? "text-warn" : "text-bad";
+  const engine = () => loadGeometryEngine(canvas.dataset.base!);
+  const verdictClass = (v: string) => v === "printable" ? "text-ok" : v === "printable with supports" ? "text-warn" : "text-bad";
+
+  function setButtons() {
+    runBtn.disabled = asmRun.disabled = busy || !gpuOk;
+    editBtn.disabled = busy || !gpuOk || !currentPart;
+    asmEdit.disabled = busy || !gpuOk || !currentAssembly;
+    replayBtn.disabled = asmReplay.disabled = busy;
+    unloadBtn.disabled = busy || !modelLoaded();
   }
 
+  for (const [box, list] of [[promptBox, "#live-suggest"], [asmPrompt, "#asm-suggest"]] as const)
+    document.querySelectorAll<HTMLButtonElement>(`${list} [data-suggest]`).forEach((b) =>
+      b.addEventListener("click", () => (box.value = b.dataset.suggest!)));
+
+  async function loadSelectedModel(say: (t: string) => void) {
+    const opt = modelSel.selectedOptions[0];
+    say(`Loading ${opt.textContent}…`);
+    await loadModel(!gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value, (f, t) => { progress(f); say(t.length > 110 ? t.slice(0, 110) + "…" : t); });
+    progress(1);
+  }
+
+  // ---- parts ----
   async function show(r: BuildResult) {
     $("live-verdict").textContent = r.verdict;
     $("live-verdict").className = verdictClass(r.verdict);
@@ -215,91 +261,91 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
       li.append(fb);
     }
     $("live-log").append(li);
-    const written = (() => { try { return JSON.stringify(JSON.parse(a.spec), null, 2); } catch { return a.spec; } })();
-    $("live-spec").textContent = written + (a.result.expanded ? "\n\n// expanded by the C++ engine:\n" + a.result.expanded : "") +
+    $("live-spec").textContent = pretty(a.spec) + (a.result.expanded ? "\n\n// expanded by the C++ engine:\n" + a.result.expanded : "") +
       (a.result.notes?.length ? "\n\n// notes: " + a.result.notes.join("; ") : "");
     show(a.result);
-    if (a.result.ok && a.result.verdict !== "not printable") addPart(a.spec, a.result.name || "part");
   }
 
-  function reset() {
-    $("live-log").replaceChildren();
-    stlBtn.disabled = true;
-    progress(0);
+  // "flange · 8 holes": the name plus the count that tells versions apart.
+  const COUNTS: Record<string, string> = { count: "holes", holes: "holes", teeth: "teeth", spokes: "spokes", ridges: "ridges",
+                                           lobes: "lobes", slots: "slots", thread: "M" };
+  function partLabel(spec: string, fallback: string) {
+    try {
+      const params = JSON.parse(spec).params ?? {};
+      for (const [k, unit] of Object.entries(COUNTS))
+        if (typeof params[k] === "number") return `${fallback} · ${unit === "M" ? "M" + params[k] : params[k] + " " + unit}`;
+    } catch { /* free-form part */ }
+    return fallback;
   }
 
-  async function engine() {
-    return loadGeometryEngine(canvas.dataset.base!);
+  // A good part becomes the current part, joins the assembly bin and is saved in the library.
+  function keepPart(prompt: string, spec: string, r: BuildResult) {
+    if (!r.ok || r.verdict === "not printable") return;
+    const name = partLabel(spec, r.name || "part");
+    currentPart = { prompt, spec: compact(spec), name };
+    addPart(spec, name);
+    addToLibrary({ kind: "part", name, prompt, spec: compact(spec) });
+    renderLibrary();
   }
 
-  runBtn.addEventListener("click", async () => {
+  async function runPart(edit: boolean) {
     if (busy) return;
-    busy = true; runBtn.disabled = replayBtn.disabled = true;
-    reset();
+    const request = promptBox.value.trim();
+    if (!request) return status("Describe a part first.");
+    const target = edit ? currentPart : null;
+    busy = true; setButtons();
+    $("live-log").replaceChildren(); stlBtn.disabled = true; progress(0);
     try {
       const eng = await engine();
-      const opt = modelSel.selectedOptions[0];
-      const modelId = !gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value;
-      status(`Loading ${opt.textContent}…`);
-      await loadModel(modelId, (f, t) => { progress(f); status(t.length > 110 ? t.slice(0, 110) + "…" : t); });
-      progress(1);
-      await generatePart(eng, promptBox.value.trim(), {
-        onAttempt: (n) => status(n === 1 ? "The model is writing the spec…" : `Repair ${n - 1}: the model is fixing the spec…`),
+      await loadSelectedModel(status);
+      const attempts = await generatePart(eng, request, {
+        onAttempt: (n) => status(n === 1 ? (target ? `The model is changing ${target.name}…` : "The model is writing the spec…")
+                                         : `Repair ${n - 1}: the model is fixing the spec…`),
         onToken: (t) => ($("live-spec").textContent = t),
         onResult: (a, n) => logAttempt(a, n),
-      });
-      status("Done. Drag to orbit; download the STL to print it. The part was added to the assembly panel below.");
+      }, 112, target ?? undefined);
+      const last = attempts[attempts.length - 1];
+      keepPart(target ? `${target.prompt}; then: ${request}` : request, last.spec, last.result);
+      status("Done. Drag to orbit, download the STL, or type a change and press Change current part.");
     } catch (err) {
       status(`Error: ${err instanceof Error ? err.message : err}`);
     } finally {
-      busy = false; runBtn.disabled = replayBtn.disabled = false;
-      if (!gpuOk) runBtn.disabled = asmRun.disabled = true;
-      touchModel();
+      busy = false; setButtons(); touchModel();
     }
-  });
+  }
+  runBtn.addEventListener("click", () => runPart(false));
+  editBtn.addEventListener("click", () => runPart(true));
 
   replayBtn.addEventListener("click", async () => {
     if (busy) return;
-    reset();
+    $("live-log").replaceChildren(); stlBtn.disabled = true; progress(0);
+    const answers = recorded.answers as Record<string, string>;
+    const key = answers[promptBox.value.trim()] ? promptBox.value.trim() : Object.keys(answers)[0];
+    promptBox.value = key;
     const eng = await engine();
-    const key = promptBox.value.trim();
-    const answer = (recorded.answers as Record<string, string>)[key] ?? Object.values(recorded.answers as Record<string, string>)[0];
-    const used = (recorded.answers as Record<string, string>)[key] ? key : Object.keys(recorded.answers)[0];
-    promptBox.value = used;
     const t0 = performance.now();
-    const result = eng.build(answer, 112, 1.0, 60000);
-    logAttempt({ spec: answer, result, seconds: 0 }, 1, ` <span class="text-faint">· recorded answer from ${recorded.model}, built live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
+    const result = eng.build(answers[key], 112, 1.0, 60000);
+    logAttempt({ spec: answers[key], result, seconds: 0 }, 1, ` <span class="text-faint">· recorded answer from ${recorded.model}, built live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
+    keepPart(key, answers[key], result);
+    setButtons();
     status(`Recorded answer from ${recorded.model}; geometry, checks and STL computed now by the C++ engine (WebAssembly).`);
   });
 
-  stlBtn.addEventListener("click", async () => {
-    const bytes = (await engine()).stl();
+  function download(bytes: Uint8Array, name: string) {
     const url = URL.createObjectURL(new Blob([bytes], { type: "model/stl" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = ($("live-name").textContent || "part").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + ".stl";
+    a.download = (name || "part").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + ".stl";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-  });
-
-  let gpuOk = false;
-  webgpuStatus().then((s) => {
-    gpuOk = s.ok;
-    gpuF16 = s.f16;
-    if (!s.ok) {
-      runBtn.disabled = asmRun.disabled = true;
-      status(`${s.reason} You can still run a recorded answer: the geometry engine runs without WebGPU.`);
-    } else {
-      status(s.f16 ? "WebGPU ready." : "WebGPU ready (no f16 support: using the f32 build of the model).");
-    }
-  });
+  }
+  stlBtn.addEventListener("click", async () => download((await engine()).stl(), $("live-name").textContent ?? "part"));
 
   // ---- GPU memory: free on request, or after a few idle minutes ----
-  const unloadBtn = $("live-unload") as HTMLButtonElement;
   const IDLE_MS = 3 * 60_000;
   let idleTimer = 0;
   function touchModel() {
-    unloadBtn.disabled = !modelLoaded();
+    setButtons();
     clearTimeout(idleTimer);
     if (modelLoaded()) idleTimer = window.setTimeout(() => freeModel("GPU memory freed after 3 idle minutes."), IDLE_MS);
   }
@@ -307,24 +353,14 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     if (busy || !modelLoaded()) return;
     clearTimeout(idleTimer);
     await unloadModel();
-    unloadBtn.disabled = true;
+    setButtons();
     status(message + " The next Generate reloads the model from the browser cache (no download).");
   }
   unloadBtn.addEventListener("click", () => freeModel("GPU memory freed."));
 
   // ---- assembly ----
-  const asmCanvas = $("asm-canvas") as HTMLCanvasElement;
-  const asmPrompt = $("asm-prompt") as HTMLTextAreaElement;
-  const asmRun = $("asm-run") as HTMLButtonElement;
-  const asmReplay = $("asm-replay") as HTMLButtonElement;
-  const asmStl = $("asm-stl") as HTMLButtonElement;
-  const asmStatus = (t: string) => ($("asm-status").textContent = t);
   const MAX_PARTS = 8;
   let bin: { id: string; name: string; spec: string }[] = [];
-  let asmViewer: { show(p: Float32Array, i: Uint32Array, c: Float32Array): void } | null = null;
-
-  document.querySelectorAll<HTMLButtonElement>("#asm-suggest [data-suggest]").forEach((b) =>
-    b.addEventListener("click", () => (asmPrompt.value = b.dataset.suggest!)));
 
   function renderBin() {
     const ul = $("asm-parts");
@@ -332,7 +368,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     if (!bin.length) {
       const li = document.createElement("li");
       li.className = "py-1 text-[12px] text-faint";
-      li.textContent = "Generate or replay parts above; each good one lands here.";
+      li.textContent = "Generate or replay parts above, or add them from your library; each good one lands here.";
       ul.append(li);
       return;
     }
@@ -345,7 +381,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
       const x = document.createElement("button");
       x.type = "button";
       x.className = "px-1 text-faint hover:text-bad";
-      x.setAttribute("aria-label", `Remove ${part.name}`);
+      x.setAttribute("aria-label", `Remove ${part.name} from the assembly parts`);
       x.textContent = "×";
       x.addEventListener("click", () => { bin = bin.filter((b) => b !== part); renderBin(); });
       li.append(label, x);
@@ -353,20 +389,21 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     }
   }
   function addPart(spec: string, name: string) {
-    const compact = (() => { try { return JSON.stringify(JSON.parse(spec)); } catch { return spec; } })();
-    if (bin.some((b) => b.spec === compact)) return;
+    const c = compact(spec);
+    if (bin.some((b) => b.spec === c)) return;
     if (bin.length >= MAX_PARTS) bin.shift();
     let n = 1;
     while (bin.some((b) => b.id === `p${n}`)) n++;
-    bin.push({ id: `p${n}`, name, spec: compact });
+    bin.push({ id: `p${n}`, name, spec: c });
     renderBin();
   }
   const binSpecs = (): PartSpecs => Object.fromEntries(bin.map((b) => [b.id, b.spec]));
-  function loadDemoParts() {
-    bin = assemblyPrompt.demo.parts.map((p) => ({ id: p.id, name: p.spec.name, spec: JSON.stringify(p.spec) }));
+  function setBin(parts: Record<string, { name: string; spec: string }>) {
+    bin = Object.entries(parts).map(([id, p]) => ({ id, name: p.name, spec: p.spec }));
     renderBin();
   }
-  $("asm-demo").addEventListener("click", loadDemoParts);
+  $("asm-demo").addEventListener("click", () =>
+    setBin(Object.fromEntries(assemblyPrompt.demo.parts.map((p) => [p.id, { name: p.spec.name, spec: JSON.stringify(p.spec) }]))));
 
   async function showAssembly(a: AssemblyAttempt, n: number, extra = "") {
     const r = a.result;
@@ -381,7 +418,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     body.textContent = r.feedback ? r.feedback + (n <= 2 ? "\n→ sent back to the model" : "") : r.notes.join("\n");
     li.append(body);
     $("asm-log").append(li);
-    $("asm-spec").textContent = (() => { try { return JSON.stringify(JSON.parse(a.mates), null, 2); } catch { return a.mates; } })();
+    $("asm-spec").textContent = pretty(a.mates);
     if (!r.positions) return;
     asmViewer ??= (await import("../scripts/mesh-viewer")).mountMeshViewer(asmCanvas);
     asmViewer.show(r.positions, r.indices!, r.colors!);
@@ -393,35 +430,48 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     asmStl.disabled = false;
   }
 
-  asmRun.addEventListener("click", async () => {
+  function keepAssembly(instruction: string, mates: string, ok: boolean) {
+    if (!ok) return;
+    currentAssembly = compact(mates);
+    let name = "assembly";
+    try { name = JSON.parse(mates).name || name; } catch { /* keep default */ }
+    addToLibrary({ kind: "assembly", name, prompt: instruction, spec: currentAssembly,
+                   parts: Object.fromEntries(bin.map((b) => [b.id, { name: b.name, spec: b.spec }])) });
+    renderLibrary();
+  }
+
+  async function runAssembly(edit: boolean) {
     if (busy) return;
     if (bin.length < 2) return asmStatus("Make at least two parts above first (or load the demo parts).");
-    busy = true; asmRun.disabled = asmReplay.disabled = runBtn.disabled = true;
-    $("asm-log").replaceChildren();
-    asmStl.disabled = true;
+    const instruction = asmPrompt.value.trim();
+    if (!instruction) return asmStatus("Type an instruction first.");
+    const current = edit ? currentAssembly ?? undefined : undefined;
+    busy = true; setButtons();
+    $("asm-log").replaceChildren(); asmStl.disabled = true;
     try {
       const eng = await engine();
-      const opt = modelSel.selectedOptions[0];
-      asmStatus(`Loading ${opt.textContent}…`);
-      await loadModel(!gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value, (f, t) => { progress(f); asmStatus(t.length > 110 ? t.slice(0, 110) + "…" : t); });
-      await generateAssembly(eng, binSpecs(), asmPrompt.value.trim(), {
-        onAttempt: (n) => asmStatus(n === 1 ? "The model is writing the mates…" : `Repair ${n - 1}: the model is fixing the mates…`),
+      await loadSelectedModel(asmStatus);
+      const attempts = await generateAssembly(eng, binSpecs(), instruction, {
+        onAttempt: (n) => asmStatus(n === 1 ? (current ? "The model is changing the assembly…" : "The model is writing the mates…")
+                                            : `Repair ${n - 1}: the model is fixing the mates…`),
         onToken: (t) => ($("asm-spec").textContent = t),
         onResult: (a, n) => showAssembly(a, n),
-      });
-      asmStatus("Done. Drag to orbit; download the STL of the whole assembly.");
+      }, 80, current);
+      const last = attempts[attempts.length - 1];
+      keepAssembly(instruction, last.mates, last.result.ok);
+      asmStatus("Done. Drag to orbit, download the STL, or type a change (\"remove the nuts\") and press Change current.");
     } catch (err) {
       asmStatus(`Error: ${err instanceof Error ? err.message : err}`);
     } finally {
-      busy = false; asmRun.disabled = asmReplay.disabled = runBtn.disabled = !gpuOk;
-      asmReplay.disabled = false;
-      touchModel();
+      busy = false; setButtons(); touchModel();
     }
-  });
+  }
+  asmRun.addEventListener("click", () => runAssembly(false));
+  asmEdit.addEventListener("click", () => runAssembly(true));
 
   asmReplay.addEventListener("click", async () => {
     if (busy) return;
-    loadDemoParts();
+    $("asm-demo").click();
     $("asm-log").replaceChildren();
     const answers = recordedAssembly.answers as Record<string, string>;
     const key = answers[asmPrompt.value.trim()] ? asmPrompt.value.trim() : Object.keys(answers)[0];
@@ -431,16 +481,111 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     const result = eng.assemble(JSON.stringify(binSpecs()), answers[key], 80);
     await showAssembly({ mates: answers[key], result, seconds: 0 }, 1,
       ` <span class="text-faint">· recorded answer from ${recordedAssembly.model}, assembled live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
+    keepAssembly(key, answers[key], result.ok);
+    setButtons();
     asmStatus(`Demo parts and a recorded answer from ${recordedAssembly.model}; placement, collisions and meshes computed now in C++.`);
   });
+  asmStl.addEventListener("click", async () => download((await engine()).assemblyStl(), $("asm-name").textContent ?? "assembly"));
 
-  asmStl.addEventListener("click", async () => {
-    const bytes = (await engine()).assemblyStl();
-    const url = URL.createObjectURL(new Blob([bytes], { type: "model/stl" }));
+  // ---- library: open, reuse or delete anything made before ----
+  const ago = (t: number) => {
+    const m = Math.round((Date.now() - t) / 60_000);
+    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+  };
+  function libButton(text: string, title: string, cls: string, onClick: () => void) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = cls;
+    b.title = title;
+    b.setAttribute("aria-label", title);
+    b.textContent = text;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  async function openItem(item: LibraryItem) {
+    if (busy) return;
+    const eng = await engine();
+    if (item.kind === "part") {
+      $("live-log").replaceChildren();
+      promptBox.value = item.prompt;
+      const result = eng.build(item.spec, 112, 1.0, 60000);
+      logAttempt({ spec: item.spec, result, seconds: 0 }, 1, ` <span class="text-faint">· from your library (${ago(item.created)})</span>`);
+      currentPart = { prompt: item.prompt, spec: item.spec, name: item.name };
+      addPart(item.spec, item.name);
+      status(`Opened ${item.name} from your library. Type a change and press Change current part, or use it in an assembly below.`);
+      $("try").scrollIntoView({ behavior: "smooth" });
+    } else {
+      setBin(item.parts ?? {});
+      $("asm-log").replaceChildren();
+      asmPrompt.value = item.prompt;
+      const result = eng.assemble(JSON.stringify(binSpecs()), item.spec, 80);
+      await showAssembly({ mates: item.spec, result, seconds: 0 }, 1, ` <span class="text-faint">· from your library (${ago(item.created)})</span>`);
+      currentAssembly = item.spec;
+      asmStatus(`Opened ${item.name} from your library with its parts. Type a change and press Change current.`);
+      $("asm-prompt").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setButtons();
+  }
+  function renderLibrary() {
+    const ul = $("lib-list");
+    ul.replaceChildren();
+    const items = loadLibrary();
+    if (!items.length) {
+      const li = document.createElement("li");
+      li.className = "py-1 text-[12px] text-faint";
+      li.textContent = "Nothing yet. Every part and assembly you make is kept here, in this browser only.";
+      ul.append(li);
+      return;
+    }
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.className = "flex items-center gap-1 border border-line-strong bg-bg py-1 pr-1 pl-2 text-[12px]";
+      const open = libButton("", `Open ${item.name}: ${item.prompt}`, "text-left hover:text-signal", () => openItem(item));
+      open.innerHTML = `<span class="font-mono text-[10px] tracking-[0.1em] text-faint uppercase">${item.kind === "part" ? "part" : "asm"}</span> `;
+      open.append(item.name);
+      const when = document.createElement("span");
+      when.className = "font-mono text-[10px] text-faint";
+      when.textContent = ago(item.created);
+      li.append(open, when);
+      if (item.kind === "part")
+        li.append(libButton("+", `Add ${item.name} to the assembly parts`, "px-1 font-mono text-faint hover:text-ink", () => addPart(item.spec, item.name)));
+      li.append(libButton("×", `Delete ${item.name} from your library`, "px-1 text-faint hover:text-bad", () => { removeFromLibrary(item.id); renderLibrary(); }));
+      ul.append(li);
+    }
+  }
+  $("lib-export").addEventListener("click", () => {
+    const url = URL.createObjectURL(exportLibrary());
     const a = document.createElement("a");
     a.href = url;
-    a.download = ($("asm-name").textContent || "assembly").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + ".stl";
+    a.download = "vibecad-library.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   });
+  $("lib-import").addEventListener("change", async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const n = importLibrary(await file.text());
+      status(`Imported ${n} item${n === 1 ? "" : "s"} into your library.`);
+    } catch {
+      status("That file is not a Vibe-CADing library export.");
+    }
+    (e.target as HTMLInputElement).value = "";
+    renderLibrary();
+  });
+  $("lib-clear").addEventListener("click", () => {
+    if (!confirm("Delete every part and assembly saved in this browser?")) return;
+    clearLibrary();
+    renderLibrary();
+  });
+  renderLibrary();
+
+  webgpuStatus().then((s) => {
+    gpuOk = s.ok;
+    gpuF16 = s.f16;
+    setButtons();
+    status(s.ok ? (s.f16 ? "WebGPU ready." : "WebGPU ready (no f16 support: using the f32 build of the model).")
+                : `${s.reason} You can still run a recorded answer or open your library: the geometry engine runs without WebGPU.`);
+  });
+  setButtons();
 </script>

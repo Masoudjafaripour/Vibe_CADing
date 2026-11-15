@@ -853,5 +853,6 @@
     "An L bracket with three screw holes per leg",
     "An M8 x 30 hex bolt",
     "A 608 skate bearing"
-  ]
+  ],
+  "edit": "Change the part you wrote above: {{INSTRUCTION}}\nKeep everything that was not mentioned and return the whole updated JSON."
 }

@@ -124,14 +124,22 @@ async function complete(messages: Msg[], onToken: (text: string) => void, schema
 
 export interface Attempt { spec: string; result: BuildResult; seconds: number }
 
+// An edit: the model sees its earlier answer for the part, then the requested change.
+export interface PartEdit { prompt: string; spec: string }
+export function editMessages(engine: Engine, current: PartEdit, instruction: string): Msg[] {
+  return [...messagesFor(engine, current.prompt), { role: "assistant", content: current.spec },
+    { role: "user", content: prompt.edit.replace("{{INSTRUCTION}}", instruction) }];
+}
+
 // The repair loop: generate, build, and feed problems back until the part is printable.
+// With `edit`, the request is a change to that part ("make it 8 holes", "remove the hub").
 export async function generatePart(engine: Engine, request: string, hooks: {
   onAttempt(n: number): void;
   onToken(text: string): void;
   onResult(a: Attempt, n: number): void;
-}, resolution = 112): Promise<Attempt[]> {
+}, resolution = 112, edit?: PartEdit): Promise<Attempt[]> {
   const attempts: Attempt[] = [];
-  const base = messagesFor(engine, request);
+  const base = edit ? editMessages(engine, edit, request) : messagesFor(engine, request);
   let messages = base;
   for (let n = 1; n <= MAX_REPAIRS + 1; n++) {
     hooks.onAttempt(n);
@@ -175,6 +183,7 @@ export function assemblySchema(engine: Engine, parts: PartSpecs) {
       part: { type: "string", enum: ids }, port: { type: "string", enum: ports },
       to: { type: "string", enum: ids }, to_port: { type: "string", enum: ports },
       offset: { type: "number" }, angle: { type: "number" }, each: { type: "boolean" },
+      skip: { type: "array", items: { type: "integer" } },
     },
     required: ["part", "port", "to", "to_port"], additionalProperties: false,
   };
@@ -187,13 +196,22 @@ export function assemblySchema(engine: Engine, parts: PartSpecs) {
 
 export interface AssemblyAttempt { mates: string; result: AssemblyResult; seconds: number }
 
+// A change to an existing assembly: the model gets the current mates and returns updated ones.
+export function assemblyEditMessages(engine: Engine, parts: PartSpecs, current: string, instruction: string): Msg[] {
+  const msgs = assemblyMessages(engine, parts, instruction).slice(0, -1);
+  msgs.push({ role: "user", content: assemblyPrompt.edit_user
+    .replace("{{PARTS}}", engine.describeParts(JSON.stringify(parts)))
+    .replace("{{CURRENT}}", current).replace("{{INSTRUCTION}}", instruction) });
+  return msgs;
+}
+
 export async function generateAssembly(engine: Engine, parts: PartSpecs, instruction: string, hooks: {
   onAttempt(n: number): void;
   onToken(text: string): void;
   onResult(a: AssemblyAttempt, n: number): void;
-}, resolution = 80): Promise<AssemblyAttempt[]> {
+}, resolution = 80, current?: string): Promise<AssemblyAttempt[]> {
   const attempts: AssemblyAttempt[] = [];
-  const base = assemblyMessages(engine, parts, instruction);
+  const base = current ? assemblyEditMessages(engine, parts, current, instruction) : assemblyMessages(engine, parts, instruction);
   const schema = assemblySchema(engine, parts);
   let messages = base;
   for (let n = 1; n <= MAX_REPAIRS + 1; n++) {

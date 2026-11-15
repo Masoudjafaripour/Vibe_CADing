@@ -129,6 +129,25 @@ def fake_q4f16_1(model, group=32):
             mod.weight.data = ((w / scale).round().clamp(-7, 7) * scale).reshape(mod.weight.shape).to(mod.weight.dtype)
 
 
+# Edits: a part from the recorded answers, then a change. A pass needs the change and nothing else changed
+# (the family and the other given numbers stay).
+EDITS = [
+    ("A pipe flange with six bolt holes", "Make it eight holes", "flange", {"count": 8}),
+    ("A pipe flange with six bolt holes", "Remove the centre hole", "flange", {"count": 6, "bore": 0}),
+    ("An M12 hex nut", "Make it M16", "hex_nut", {"thread": 16}),
+    ("A spur gear with 24 teeth and an 8 mm bore", "Make it twice as thick", "spur_gear", {"teeth": 24, "thickness": 16}),
+    ("A wall hook with two screw holes", "Add one more screw hole", "wall_hook", {"holes": 3}),
+    ("A knurled thumb knob with 12 grip ridges", "Remove the hole underneath", "knurled_knob", {"ridges": 12, "bore": 0}),
+    ("A hand wheel with five spokes", "Make it bigger, 150 mm across", "hand_wheel", {"spokes": 5, "diameter": 150}),
+    ("An L bracket with three screw holes per leg", "Change it to one hole per leg", "l_bracket", {"holes": 1}),
+]
+
+
+def edit_messages(prompt, spec, instruction):
+    return messages_for(prompt) + [{"role": "assistant", "content": spec},
+                                   {"role": "user", "content": PROMPT["edit"].replace("{{INSTRUCTION}}", instruction)}]
+
+
 class Model:
     def __init__(self, name):
         self.name = name
@@ -176,14 +195,21 @@ def run(model_name, out_dir):
         r = g.csg_build(spec, 64)
         held.append({"prompt": prompt, "spec": spec, "seconds": round(dt, 1),
                      "pass": bool(r["ok"] and held_out_pass(spec, family, want))})
+    recorded = json.load(open(os.path.join(HERE, "recorded.json")))["answers"]
+    edits = []
+    for prompt, instruction, family, want in EDITS:
+        spec, n, dt = m.generate(edit_messages(prompt, recorded[prompt], instruction))
+        r = g.csg_build(spec, 64)
+        edits.append({"prompt": prompt, "edit": instruction, "spec": spec, "seconds": round(dt, 1),
+                      "pass": bool(r["ok"] and held_out_pass(spec, family, want))})
     del m
     torch.cuda.empty_cache()
     with open(os.path.join(out_dir, model_name.replace("/", "__") + ("-q4" if Q4 else "") + ".json"), "w") as f:
-        json.dump({"suggestions": rows, "held_out": held}, f, indent=2)
+        json.dump({"suggestions": rows, "held_out": held, "edits": edits}, f, indent=2)
     good = sum(r["ok"] and r["verdict"] != "not printable" for r in rows)
     print(f"{model_name}{' (q4)' if Q4 else ''}: {good}/{len(rows)} valid & printable, {sum(r['adheres'] for r in rows)}/{len(rows)} "
           f"look like the prompt, {sum(r['first_try'] for r in rows)}/{len(rows)} first try; "
-          f"held-out {sum(h['pass'] for h in held)}/{len(held)} exact\n", flush=True)
+          f"held-out {sum(h['pass'] for h in held)}/{len(held)} exact; edits {sum(e['pass'] for e in edits)}/{len(edits)}\n", flush=True)
 
 
 if __name__ == "__main__":

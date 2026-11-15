@@ -135,6 +135,14 @@ The schema is built at run time from the parts, so the model can only name real 
   `mate 1 (p2.head_bottom to p1.hole_1_top): p2 (M8 x 25 bolt) has no port "head_bottom". Its ports are: under_head, tip, head, …`.
   A mate that only repeats an `each` mate is dropped with a note.
 
+**Changes by instruction.** For "make it eight holes" the model gets its earlier answer for the part and the
+change ([`prompt.json`](prompt.json) `edit`) and returns the whole updated JSON. For an assembly it gets the current
+mates (`edit_user`). Removing copies uses `"skip": [3]` on an `each` mate. The result goes through the same checks
+and repair loop.
+
+**Library.** Every good part and assembly is saved in the visitor's browser (`localStorage`, nothing leaves the
+device). It can be reopened (and then changed), added to an assembly, exported to a JSON file and imported elsewhere.
+
 Each part is meshed once and copies are transformed, so 13 parts (a flange, 6 bolts and 6 nuts) take about 0.5 s
 in the browser. The STL download contains the whole assembly.
 
@@ -163,21 +171,25 @@ and repair loop, and scores each answer with the same C++ engine.
 | Qwen2.5-Coder-0.5B | bf16 (unquantized) | 9/10 | 2/10 |
 | Qwen3-0.6B | bf16 (unquantized) | 8/10 | 2/10 |
 
-After adding bolt, shaft and bearing (12 suggestions, 12 held-out prompts), the browser models score:
-Qwen3-4B 4-bit **12/12 and 11/12**, and Qwen3-1.7B 4-bit 12/12 and 9/12.
+After adding bolt, shaft and bearing (12 suggestions, 12 held-out prompts) and 8 **edits** of recorded parts
+("make it eight holes", "remove the centre hole", "make it M16"; a pass needs the change and nothing else
+changed), the browser models score: Qwen3-4B 4-bit **12/12, 11/12 and 8/8 edits**; Qwen3-1.7B 4-bit 12/12, 9/12
+and 6/8.
 
 **Assembly** ([`eval_assembly.py`](eval_assembly.py)): 8 instructions over different parts. A pass means a valid
 assembly, no collisions and the right connections (e.g. 13 parts for "a bolt through every hole and a nut
 under each one").
 
-| Model | Weights | Assemblies as instructed | First try |
-|---|---|---|---|
-| **Qwen3-4B** | **4-bit (browser)** | **6/8** | 6/8 |
-| Qwen3-1.7B | 4-bit (browser) | 3/8 | 2/8 |
+Edits start from a correct assembly of the demo parts: "remove the nuts", "leave out the bolt and the nut in hole
+3", "move the wheel 10 mm lower", "add a nut under each bolt", "remove the wheel".
 
-The two misses for Qwen3-4B: on the bracket it attached each bolt to both faces of the hole and didn't fix that
-when told, and it put a nut under a standoff instead of on top. The checks catch the first (it is reported as
-problems), not the second, which is a valid assembly of the wrong thing.
+| Model | Weights | Assemblies as instructed | First try | Edits |
+|---|---|---|---|---|
+| **Qwen3-4B** | **4-bit (browser)** | **7/8** | 7/8 | **5/5** |
+| Qwen3-1.7B | 4-bit (browser) | 3/8 | 2/8 | 1/5 |
+
+The one miss for Qwen3-4B: it put a nut under a standoff instead of on top. That is a valid assembly of the wrong
+thing, so the checks cannot catch it.
 
 The unquantized models small enough for a browser learn the suggestions but fail on new wording. The site uses
 **Qwen3-4B, 4-bit**: about a 2.3 GB download, cached by the browser, and 3.4 GB of GPU memory. Qwen3-1.7B is the

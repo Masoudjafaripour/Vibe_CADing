@@ -69,6 +69,11 @@ int main() {
           "wheel sits 15 mm down the shaft (y = " + std::to_string(w ? w->translation[1] : -1) + ") " + r.feedback.substr(0, 200));
     check(r.overlaps.empty(), "8.4 mm bore on an 8 mm shaft: no collision");
 
+    // "skip" leaves copies out; ids keep the hole number.
+    r = assemble(parts, R"({"mates": [
+        {"part": "p2", "port": "under_head", "to": "p1", "to_port": "hole_1_top", "each": true, "skip": [3]}]})");
+    check(r.ok && r.placed.size() == 4 && find(r, "p2#4") && !find(r, "p2#3"), "skip [3]: bolts in holes 1, 2, 4 only");
+
     // Listing every hole after "each": true is redundant, not wrong: dropped with a note.
     r = assemble(parts, R"({"mates": [
         {"part": "p2", "port": "under_head", "to": "p1", "to_port": "hole_1_top", "each": true},

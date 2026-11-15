@@ -26,7 +26,8 @@ def schema_for(parts):
     mate = {"type": "object", "properties": {
         "part": {"type": "string", "enum": ids}, "port": {"type": "string", "enum": ports},
         "to": {"type": "string", "enum": ids}, "to_port": {"type": "string", "enum": ports},
-        "offset": {"type": "number"}, "angle": {"type": "number"}, "each": {"type": "boolean"}},
+        "offset": {"type": "number"}, "angle": {"type": "number"}, "each": {"type": "boolean"},
+        "skip": {"type": "array", "items": {"type": "integer"}}},
         "required": ["part", "port", "to", "to_port"], "additionalProperties": False}
     return {"type": "object", "properties": {"name": {"type": "string"},
             "mates": {"type": "array", "minItems": 1, "maxItems": 12, "items": mate}},
@@ -43,6 +44,13 @@ def messages_for(parts, instruction):
         msgs += [{"role": "user", "content": user_message(ex["parts"], ex["instruction"])},
                  {"role": "assistant", "content": json.dumps(ex["mates"])}]
     return msgs + [{"role": "user", "content": user_message(parts, instruction)}]
+
+
+def edit_messages(parts, current, instruction):
+    msgs = messages_for(parts, instruction)[:-1]
+    user = (PROMPT["edit_user"].replace("{{PARTS}}", g.describe_parts(json.dumps(parts)))
+            .replace("{{CURRENT}}", current).replace("{{INSTRUCTION}}", instruction))
+    return msgs + [{"role": "user", "content": user}]
 
 
 def P(**kw):
@@ -95,6 +103,27 @@ SCENARIOS = [
 ]
 
 
+DEMO = {p["id"]: json.dumps(p["spec"]) for p in PROMPT["demo"]["parts"]}
+BOLTED = json.dumps({"name": "bolted flange", "mates": [
+    {"part": "p2", "port": "under_head", "to": "p1", "to_port": "hole_1_top", "each": True},
+    {"part": "p3", "port": "bore_top", "to": "p1", "to_port": "hole_1_bottom", "each": True}]})
+WHEEL_ON_SHAFT = json.dumps({"name": "wheel on shaft", "mates": [
+    {"part": "p4", "port": "bottom_end", "to": "p1", "to_port": "bore_top", "offset": -8},
+    {"part": "p5", "port": "bore_bottom", "to": "p4", "to_port": "top_end", "offset": -20}]})
+BOLTS_ONLY = json.dumps({"name": "bolts", "mates": [
+    {"part": "p2", "port": "under_head", "to": "p1", "to_port": "hole_1_top", "each": True}]})
+# (current assembly, instruction, check(mates, result)) on the demo parts
+EDITS = [
+    (BOLTED, "Remove the nuts", lambda ms, r: len(r["placed"]) == 7 and not any(m["part"] == "p3" for m in ms)),
+    (BOLTED, "Leave out the bolt and the nut in hole 3",
+     lambda ms, r: len(r["placed"]) == 11 and all(3 in m.get("skip", []) for m in ms if m.get("each"))),
+    (WHEEL_ON_SHAFT, "Move the wheel 10 mm lower",
+     lambda ms, r: any(m["part"] == "p5" and abs(m.get("offset", 0) + 30) < 0.5 for m in ms) and len(r["placed"]) == 3),
+    (BOLTS_ONLY, "Add a nut under each bolt", lambda ms, r: len(r["placed"]) == 13),
+    (WHEEL_ON_SHAFT, "Remove the wheel", lambda ms, r: len(r["placed"]) == 2 and not any(m["part"] == "p5" for m in ms)),
+]
+
+
 def run(model_name, out_dir):
     m = Model(model_name)
     rows = []
@@ -115,13 +144,21 @@ def run(model_name, out_dir):
                      "valid": r["ok"], "collisions": len(r["overlaps"]), "pass": ok, "first_try": ok and attempt == 1,
                      "feedback": r["feedback"]})
         print(f"  {instruction[:60]:60s} pass {ok}  attempts {attempt}", flush=True)
+    grammar = m.compiler.compile_json_schema(json.dumps(schema_for(DEMO)))
+    edits = []
+    for current, instruction, check in EDITS:
+        text, n, dt = m.generate(edit_messages(DEMO, current, instruction), grammar)
+        r = g.csg_assemble(json.dumps(DEMO), text, 48)
+        ok = bool(r["ok"] and not r["overlaps"] and check(mates_of(text), r))
+        edits.append({"edit": instruction, "answer": text, "pass": ok, "feedback": r["feedback"]})
+        print(f"  edit: {instruction:50s} pass {ok}", flush=True)
     del m
     torch.cuda.empty_cache()
     q4 = os.environ.get("EVAL_Q4") == "1"
     with open(os.path.join(out_dir, "assembly__" + model_name.replace("/", "__") + ("-q4" if q4 else "") + ".json"), "w") as f:
-        json.dump(rows, f, indent=2)
+        json.dump({"instructions": rows, "edits": edits}, f, indent=2)
     print(f"{model_name}{' (q4)' if q4 else ''}: {sum(r['pass'] for r in rows)}/{len(rows)} assemblies as instructed, "
-          f"{sum(r['first_try'] for r in rows)}/{len(rows)} first try\n", flush=True)
+          f"{sum(r['first_try'] for r in rows)}/{len(rows)} first try; edits {sum(e['pass'] for e in edits)}/{len(edits)}\n", flush=True)
 
 
 if __name__ == "__main__":

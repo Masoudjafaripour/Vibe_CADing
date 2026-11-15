@@ -115,5 +115,6 @@
       "Put a bolt through every hole of the flange and a nut under each one",
       "Stand the shaft in the centre hole of the flange and slide the wheel 20 mm onto its top"
     ]
-  }
+  },
+  "edit_user": "Parts:\n{{PARTS}}\nCurrent assembly: {{CURRENT}}\nChange it: {{INSTRUCTION}}\nKeep everything that was not mentioned and return the whole updated JSON."
 }

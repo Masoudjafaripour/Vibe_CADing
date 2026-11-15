@@ -244,7 +244,8 @@ AssemblyResult assemble(const std::string& parts_json, const std::string& mates_
         std::string part, port, to, to_port;
         float offset = 0, angle = 0;
         bool each = false;
-        size_t index = 0;  // position in the model's list, for messages
+        std::set<int> skip;  // with "each": numbers left out ("all holes but 3")
+        size_t index = 0;    // position in the model's list, for messages
     };
     std::vector<Mate> list;
     std::vector<std::string> errors;
@@ -254,11 +255,15 @@ AssemblyResult assemble(const std::string& parts_json, const std::string& mates_
     };
     for (size_t i = 0; i < mates->array.size() && i < 40; ++i) {
         const json::Value& m = mates->array[i];
-        Mate mt{str(m, "part"), str(m, "port"), str(m, "to"), str(m, "to_port")};
+        Mate mt;
+        mt.part = str(m, "part"), mt.port = str(m, "port"), mt.to = str(m, "to"), mt.to_port = str(m, "to_port");
         mt.index = i;
         if (const auto* v = m.get("offset"); v && v->is_number()) mt.offset = float(std::clamp(v->number, -500.0, 500.0));
         if (const auto* v = m.get("angle"); v && v->is_number()) mt.angle = float(v->number);
         if (const auto* v = m.get("each"); v && v->type == json::Value::Type::Bool) mt.each = v->boolean;
+        if (const auto* v = m.get("skip"); v && v->is_array())
+            for (const auto& n : v->array)
+                if (n.is_number()) mt.skip.insert(int(std::lround(n.number)));
         const std::string where = describe_mate(i, mt.part, mt.port, mt.to, mt.to_port);
         bool ok = true;
         for (const auto& [id, port] : {std::pair{mt.part, mt.port}, std::pair{mt.to, mt.to_port}}) {
@@ -344,15 +349,21 @@ AssemblyResult assemble(const std::string& parts_json, const std::string& mates_
             const Source& src = sources.at(m.part);
             const Port& port = *find_port(src, m.port);
             std::vector<const Port*> to_ports;
+            std::vector<int> copy_numbers;
             if (m.each) {
                 const Numbered key = split_number(m.to_port);
                 std::vector<std::pair<int, const Port*>> numbered;
                 for (const Port& p : target.src->ports) {
                     const Numbered k = split_number(p.name);
-                    if (k.n >= 0 && k.prefix == key.prefix && k.suffix == key.suffix) numbered.push_back({k.n, &p});
+                    if (k.n >= 0 && k.prefix == key.prefix && k.suffix == key.suffix && !m.skip.count(k.n)) numbered.push_back({k.n, &p});
                 }
                 std::sort(numbered.begin(), numbered.end(), [](auto& a, auto& b) { return a.first < b.first; });
-                for (const auto& [n, p] : numbered) to_ports.push_back(p);
+                for (const auto& [n, p] : numbered) to_ports.push_back(p), copy_numbers.push_back(n);
+                if (numbered.empty()) {
+                    errors.push_back(where + ": \"skip\" leaves out every copy. Remove the mate instead.");
+                    applied[i] = true;
+                    continue;
+                }
             } else {
                 to_ports.push_back(find_port(*target.src, m.to_port));
             }
@@ -362,7 +373,7 @@ AssemblyResult assemble(const std::string& parts_json, const std::string& mates_
                 const Vec3 dir = normalize(mul(target.placed.rotation, to_ports[c]->dir));
                 Instance in{&src, attach(src, port, pt, dir, m.offset, m.angle)};
                 in.placed.of = m.part;
-                in.placed.id = to_ports.size() > 1 ? m.part + "#" + std::to_string(c + 1) : m.part;
+                in.placed.id = m.each ? m.part + "#" + std::to_string(copy_numbers[c]) : m.part;
                 made.push_back(in);
             }
             applied[i] = true;
@@ -533,7 +544,10 @@ A mate moves "part" so that its "port" meets "to_port" of "to": the two points t
 - Choose to_port by where the part goes: "on top of" a part uses its top port (bore_top, top_end, top), "under" or
   "below" uses its bottom port (bore_bottom, bottom_end, bottom).
 - A shaft standing in a centre hole: part = shaft, port = bottom_end, to_port = bore_top, offset = minus the depth.
+- "skip": [3] leaves numbers out of an "each" mate: "a bolt in every hole except hole 3".
 - "angle" turns the part about the target port's direction.
+- To change an existing assembly, you get its JSON: return the whole updated JSON. To remove a part, delete its
+  mate (and the mates of parts attached to it); to remove some copies, use "skip".
 - The part that nothing is attached to stays in place (the base). Every other part needs exactly one mate, and the
   "to" of a mate must be the base or a part that is already attached.)";
 }

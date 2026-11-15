@@ -21,7 +21,7 @@
       "spec": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 60, \"width\": 18, \"groove_depth\": 6, \"bore\": 20}}",
       "attempts": 1,
       "tokens": 53,
-      "seconds": 2.4,
+      "seconds": 2.5,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 1,
@@ -51,7 +51,7 @@
       "spec": "{\"name\": \"wall hook with two screw holes\", \"family\": \"wall_hook\", \"params\": {\"holes\": 2}}",
       "attempts": 1,
       "tokens": 28,
-      "seconds": 1.4,
+      "seconds": 1.6,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 2,
@@ -81,7 +81,7 @@
       "spec": "{\"name\": \"hand wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 100, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
       "attempts": 1,
       "tokens": 66,
-      "seconds": 2.9,
+      "seconds": 3.1,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 6,
@@ -141,7 +141,7 @@
       "spec": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}",
       "attempts": 1,
       "tokens": 55,
-      "seconds": 2.5,
+      "seconds": 2.9,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 6,
@@ -153,15 +153,15 @@
     {
       "model": "Qwen/Qwen3-4B",
       "prompt": "An M8 x 30 hex bolt",
-      "spec": "{\"name\": \"M8 bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 8, \"length\": 30, \"thread_length\": 28}}",
-      "attempts": 3,
-      "tokens": 109,
-      "seconds": 5.2,
+      "spec": "{\"name\": \"M8 bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 8, \"length\": 30}}",
+      "attempts": 1,
+      "tokens": 31,
+      "seconds": 1.5,
       "ok": true,
-      "verdict": "not printable",
+      "verdict": "printable with supports",
       "genus": 0,
       "shells": 1,
-      "first_try": false,
+      "first_try": true,
       "family": "bolt",
       "adheres": true
     },
@@ -171,7 +171,7 @@
       "spec": "{\"name\": \"608 skate bearing\", \"family\": \"bearing\", \"params\": {\"bore\": 8, \"outer\": 22, \"width\": 7}}",
       "attempts": 1,
       "tokens": 40,
-      "seconds": 1.9,
+      "seconds": 2.1,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 1,
@@ -191,7 +191,7 @@
     {
       "prompt": "A gear with 32 teeth",
       "spec": "{\"name\": \"gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 32, \"module\": 2, \"thickness\": 8}}",
-      "seconds": 1.8,
+      "seconds": 1.9,
       "pass": true
     },
     {
@@ -203,19 +203,19 @@
     {
       "prompt": "A seven-lobed knob for a bolt head",
       "spec": "{\"name\": \"seven-lobed knob\", \"family\": \"star_knob\", \"params\": {\"lobes\": 7, \"diameter\": 40, \"height\": 14, \"socket\": 10}}",
-      "seconds": 2.3,
+      "seconds": 2.4,
       "pass": true
     },
     {
       "prompt": "Coat hook, 3 screw holes",
       "spec": "{\"name\": \"coat hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3, \"hole_diameter\": 4.5}}",
-      "seconds": 1.6,
+      "seconds": 1.8,
       "pass": true
     },
     {
       "prompt": "Holder that keeps 5 charging cables on my desk",
       "spec": "{\"name\": \"cable organizer\", \"family\": \"cable_organizer\", \"params\": {\"slots\": 5, \"slot_diameter\": 10}}",
-      "seconds": 1.7,
+      "seconds": 1.8,
       "pass": true
     },
     {
@@ -227,7 +227,7 @@
     {
       "prompt": "Valve wheel, 3 spokes, 150 mm",
       "spec": "{\"name\": \"valve wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 3, \"diameter\": 150, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
-      "seconds": 3.0,
+      "seconds": 3.2,
       "pass": true
     },
     {
@@ -251,7 +251,65 @@
     {
       "prompt": "Axle 12 mm thick and 100 mm long with a flat",
       "spec": "{\"name\": \"axle\", \"family\": \"shaft\", \"params\": {\"diameter\": 12, \"length\": 100, \"flat\": 6}}",
+      "seconds": 1.9,
+      "pass": true
+    }
+  ],
+  "edits": [
+    {
+      "prompt": "A pipe flange with six bolt holes",
+      "edit": "Make it eight holes",
+      "spec": "{\"name\": \"pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 8}}",
+      "seconds": 1.3,
+      "pass": true
+    },
+    {
+      "prompt": "A pipe flange with six bolt holes",
+      "edit": "Remove the centre hole",
+      "spec": "{\"name\": \"pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 6, \"bore\": 0}}",
+      "seconds": 1.5,
+      "pass": true
+    },
+    {
+      "prompt": "An M12 hex nut",
+      "edit": "Make it M16",
+      "spec": "{\"name\": \"M16 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 16}}",
+      "seconds": 1.4,
+      "pass": true
+    },
+    {
+      "prompt": "A spur gear with 24 teeth and an 8 mm bore",
+      "edit": "Make it twice as thick",
+      "spec": "{\"name\": \"spur gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 16, \"bore\": 8}}",
+      "seconds": 2.2,
+      "pass": true
+    },
+    {
+      "prompt": "A wall hook with two screw holes",
+      "edit": "Add one more screw hole",
+      "spec": "{\"name\": \"wall hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3}}",
+      "seconds": 1.2,
+      "pass": true
+    },
+    {
+      "prompt": "A knurled thumb knob with 12 grip ridges",
+      "edit": "Remove the hole underneath",
+      "spec": "{\"name\": \"knurled thumb knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 12, \"bore\": 0}}",
       "seconds": 1.8,
+      "pass": true
+    },
+    {
+      "prompt": "A hand wheel with five spokes",
+      "edit": "Make it bigger, 150 mm across",
+      "spec": "{\"name\": \"hand_wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 150, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
+      "seconds": 2.9,
+      "pass": true
+    },
+    {
+      "prompt": "An L bracket with three screw holes per leg",
+      "edit": "Change it to one hole per leg",
+      "spec": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 1, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}",
+      "seconds": 2.5,
       "pass": true
     }
   ]
