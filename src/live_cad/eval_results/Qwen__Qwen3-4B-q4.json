@@ -18,10 +18,10 @@
     {
       "model": "Qwen/Qwen3-4B",
       "prompt": "A V-belt pulley with a center bore",
-      "spec": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 60, \"width\": 18, \"groove_depth\": 6, \"bore\": 8, \"hub_diameter\": 0, \"hub_height\": 8}}",
+      "spec": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 60, \"width\": 18, \"groove_depth\": 6, \"bore\": 20}}",
       "attempts": 1,
-      "tokens": 67,
-      "seconds": 2.8,
+      "tokens": 53,
+      "seconds": 2.4,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 1,
@@ -48,10 +48,10 @@
     {
       "model": "Qwen/Qwen3-4B",
       "prompt": "A wall hook with two screw holes",
-      "spec": "{\"name\": \"wall hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 2}}",
+      "spec": "{\"name\": \"wall hook with two screw holes\", \"family\": \"wall_hook\", \"params\": {\"holes\": 2}}",
       "attempts": 1,
-      "tokens": 24,
-      "seconds": 1.2,
+      "tokens": 28,
+      "seconds": 1.4,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 2,
@@ -78,10 +78,10 @@
     {
       "model": "Qwen/Qwen3-4B",
       "prompt": "A hand wheel with five spokes",
-      "spec": "{\"name\": \"hand_wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 100, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
+      "spec": "{\"name\": \"hand wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 100, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
       "attempts": 1,
       "tokens": 66,
-      "seconds": 2.8,
+      "seconds": 2.9,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 6,
@@ -93,10 +93,10 @@
     {
       "model": "Qwen/Qwen3-4B",
       "prompt": "An M12 hex nut",
-      "spec": "{\"name\": \"M12 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 12}}",
+      "spec": "{\"name\": \"M12 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 12, \"across_flats\": 0, \"height\": 0}}",
       "attempts": 1,
-      "tokens": 29,
-      "seconds": 1.4,
+      "tokens": 44,
+      "seconds": 2.0,
       "ok": true,
       "verdict": "printable",
       "genus": 1,
@@ -126,7 +126,7 @@
       "spec": "{\"name\": \"spur gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 8, \"bore\": 8}}",
       "attempts": 1,
       "tokens": 48,
-      "seconds": 2.1,
+      "seconds": 2.2,
       "ok": true,
       "verdict": "printable",
       "genus": 1,
@@ -141,7 +141,7 @@
       "spec": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}",
       "attempts": 1,
       "tokens": 55,
-      "seconds": 2.4,
+      "seconds": 2.5,
       "ok": true,
       "verdict": "printable with supports",
       "genus": 6,
@@ -149,25 +149,55 @@
       "first_try": true,
       "family": "l_bracket",
       "adheres": true
+    },
+    {
+      "model": "Qwen/Qwen3-4B",
+      "prompt": "An M8 x 30 hex bolt",
+      "spec": "{\"name\": \"M8 bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 8, \"length\": 30, \"thread_length\": 28}}",
+      "attempts": 3,
+      "tokens": 109,
+      "seconds": 5.2,
+      "ok": true,
+      "verdict": "not printable",
+      "genus": 0,
+      "shells": 1,
+      "first_try": false,
+      "family": "bolt",
+      "adheres": true
+    },
+    {
+      "model": "Qwen/Qwen3-4B",
+      "prompt": "A 608 skate bearing",
+      "spec": "{\"name\": \"608 skate bearing\", \"family\": \"bearing\", \"params\": {\"bore\": 8, \"outer\": 22, \"width\": 7}}",
+      "attempts": 1,
+      "tokens": 40,
+      "seconds": 1.9,
+      "ok": true,
+      "verdict": "printable with supports",
+      "genus": 1,
+      "shells": 1,
+      "first_try": true,
+      "family": "bearing",
+      "adheres": true
     }
   ],
   "held_out": [
     {
       "prompt": "Flange, 100 mm across, eight bolt holes, 40 mm bore",
       "spec": "{\"name\": \"flange\", \"family\": \"flange\", \"params\": {\"count\": 8, \"diameter\": 100, \"bore\": 40}}",
-      "seconds": 1.8,
+      "seconds": 1.9,
       "pass": true
     },
     {
       "prompt": "A gear with 32 teeth",
-      "spec": "{\"name\": \"32-tooth gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 32, \"module\": 2, \"thickness\": 8, \"bore\": 8}}",
-      "seconds": 2.2,
+      "spec": "{\"name\": \"gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 32, \"module\": 2, \"thickness\": 8}}",
+      "seconds": 1.8,
       "pass": true
     },
     {
       "prompt": "M8 nut",
-      "spec": "{\"name\": \"M8 nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 8}}",
-      "seconds": 1.2,
+      "spec": "{\"name\": \"M8 nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 8, \"across_flats\": 18, \"height\": 18}}",
+      "seconds": 2.0,
       "pass": true
     },
     {
@@ -178,8 +208,8 @@
     },
     {
       "prompt": "Coat hook, 3 screw holes",
-      "spec": "{\"name\": \"coat hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3}}",
-      "seconds": 1.2,
+      "spec": "{\"name\": \"coat hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3, \"hole_diameter\": 4.5}}",
+      "seconds": 1.6,
       "pass": true
     },
     {
@@ -190,26 +220,38 @@
     },
     {
       "prompt": "A grippy round knob, 40 mm wide, 20 ridges",
-      "spec": "{\"name\": \"grippy knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 20, \"diameter\": 40, \"height\": 16, \"bore\": 6}}",
-      "seconds": 2.3,
+      "spec": "{\"name\": \"grippy knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 20, \"diameter\": 40, \"height\": 20}}",
+      "seconds": 2.1,
       "pass": true
     },
     {
       "prompt": "Valve wheel, 3 spokes, 150 mm",
       "spec": "{\"name\": \"valve wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 3, \"diameter\": 150, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
-      "seconds": 2.8,
+      "seconds": 3.0,
       "pass": true
     },
     {
       "prompt": "A 12 mm bore pulley, 80 mm diameter",
-      "spec": "{\"name\": \"pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 80, \"groove_depth\": 6, \"bore\": 12}}",
-      "seconds": 1.9,
-      "pass": true
+      "spec": "{\"name\": \"pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 80, \"groove_depth\": 6, \"bore\": 8, \"hub_diameter\": 0, \"hub_height\": 8}}",
+      "seconds": 2.6,
+      "pass": false
     },
     {
       "prompt": "Corner bracket, 60 mm legs, one hole each",
-      "spec": "{\"name\": \"corner bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 1, \"base_length\": 60, \"upright_length\": 60, \"thickness\": 6}}",
+      "spec": "{\"name\": \"corner bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 1, \"base_length\": 60, \"upright_length\": 60, \"thickness\": 4}}",
       "seconds": 2.2,
+      "pass": true
+    },
+    {
+      "prompt": "M6 screw, 20 long",
+      "spec": "{\"name\": \"M6 screw\", \"family\": \"bolt\", \"params\": {\"thread\": 6, \"length\": 20}}",
+      "seconds": 1.5,
+      "pass": true
+    },
+    {
+      "prompt": "Axle 12 mm thick and 100 mm long with a flat",
+      "spec": "{\"name\": \"axle\", \"family\": \"shaft\", \"params\": {\"diameter\": 12, \"length\": 100, \"flat\": 6}}",
+      "seconds": 1.8,
       "pass": true
     }
   ]

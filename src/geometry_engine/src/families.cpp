@@ -32,16 +32,30 @@ public:
     Parts& blend(float b) { return b > 0 ? extra(fmt("\"blend\": %g", b)) : *this; }
     Parts& round(float r) { return r > 0 ? extra(fmt("\"round\": %g", r)) : *this; }
     Parts& color(const char* c) { return extra(std::string("\"color\": \"") + c + "\""); }
+    // A named connection point for assemblies: position and outward direction.
+    Parts& port(const std::string& name, float x, float y, float z, float dx, float dy, float dz) {
+        ports_.push_back("{\"name\": \"" + name + "\", \"at\": [" + num(x) + ", " + num(y) + ", " + num(z) +
+                         "], \"dir\": [" + num(dx) + ", " + num(dy) + ", " + num(dz) + "]}");
+        return *this;
+    }
+    // The usual pair for a part with a vertical bore: its top and bottom openings.
+    Parts& bore_ports(float top) { return port("bore_top", 0, top, 0, 0, 1, 0).port("bore_bottom", 0, 0, 0, 0, -1, 0); }
 
     std::string json(const std::string& name) const {
         std::string s = "{\"name\": \"" + name + "\", \"parts\": [";
         for (size_t i = 0; i < parts_.size(); ++i) s += (i ? ",\n  " : "\n  ") + parts_[i] + "}";
-        return s + "\n]}";
+        s += "\n]";
+        if (!ports_.empty()) {
+            s += ", \"ports\": [";
+            for (size_t i = 0; i < ports_.size(); ++i) s += (i ? ",\n  " : "\n  ") + ports_[i];
+            s += "\n]";
+        }
+        return s + "}";
     }
 
 private:
     std::string color_;
-    std::vector<std::string> parts_;
+    std::vector<std::string> parts_, ports_;
 
     static std::string fmt(const char* f, double a, double b = 0, double c = 0) {
         char buf[160];
@@ -74,6 +88,14 @@ float nut_across_flats(float m) {
     return (it != af.end() && std::abs(it->first - m) < 0.01f) ? it->second : 1.5f * m + 1;
 }
 float nut_height(float m) { return m <= 3 ? 0.8f * m : 0.85f * m; }
+
+// ISO 261 coarse thread pitch, mm.
+float iso_pitch(float m) {
+    static const std::map<float, float> pitch = {{3, 0.5f}, {4, 0.7f}, {5, 0.8f}, {6, 1},     {8, 1.25f}, {10, 1.5f},
+                                                 {12, 1.75f}, {14, 2},  {16, 2},    {20, 2.5f}, {24, 3}};
+    auto it = pitch.lower_bound(m - 0.01f);
+    return it != pitch.end() ? it->second : 3;
+}
 
 using Generator = std::function<std::string(Params&, std::vector<std::string>&)>;
 
@@ -109,6 +131,12 @@ const std::vector<Family>& table() {
              if (hub) s.add("cylinder", {hub, top}, 0, top / 2, 0).blend(2);
              if (B > 0) s.cut("cylinder", {B, top + 10}, 0, top / 2, 0);
              if (p["count"] >= 1) s.cut("cylinder", {h, T + 10}, C, T / 2, 0).repeat(int(p["count"]));
+             s.bore_ports(top);
+             for (int i = 0; i < int(p["count"]); ++i) {  // same angles as "repeat": 2 pi i / n from +x towards +z
+                 const float a = 2 * kPi * i / p["count"], x = C * std::cos(a), z = C * std::sin(a);
+                 s.port("hole_" + std::to_string(i + 1) + "_top", x, T, z, 0, 1, 0);
+                 s.port("hole_" + std::to_string(i + 1) + "_bottom", x, 0, z, 0, -1, 0);
+             }
              return s.json("flange");
          }},
 
@@ -128,6 +156,7 @@ const std::vector<Family>& table() {
              if (p["hub_height"] > 0) s.add("cylinder", {hub, W + p["hub_height"]}, 0, (W + p["hub_height"]) / 2, 0).blend(1.5f);
              s.cut("torus", {D, tube}, 0, W / 2, 0);
              if (B > 0) s.cut("cylinder", {B, W + p["hub_height"] + 10}, 0, (W + p["hub_height"]) / 2, 0);
+             s.bore_ports(W + p["hub_height"]);
              return s.json("V-belt pulley");
          }},
 
@@ -144,6 +173,7 @@ const std::vector<Family>& table() {
              s.add("cone", {D, D * 0.82f, H * 0.2f}, 0, H * 0.9f, 0).blend(1);
              s.cut("cylinder", {2 * r, H + 10}, D / 2 + r * 0.35f, H / 2, 0).repeat(int(n));
              if (p["bore"] > 0) s.cut("cylinder", {std::min(p["bore"], D * 0.5f), H * 1.3f}, 0, 0, 0);
+             s.port("socket", 0, 0, 0, 0, -1, 0);
              return s.json("knurled knob");
          }},
 
@@ -163,6 +193,7 @@ const std::vector<Family>& table() {
                  const float S = std::min(p["socket"], D * 0.45f);
                  s.cut("prism", {S, H * 1.2f, 6}, 0, 0, 0);
              }
+             s.port("socket", 0, 0, 0, 0, -1, 0);
              return s.json("star knob");
          }},
 
@@ -177,6 +208,7 @@ const std::vector<Family>& table() {
              Parts s("steel");
              s.add("prism", {AF, Hn, 6}, 0, Hn / 2, 0);
              s.cut("cylinder", {M, Hn + 10}, 0, Hn / 2, 0);
+             s.bore_ports(Hn);
              return s.json("M" + std::to_string(int(M)) + " hex nut");
          }},
 
@@ -197,6 +229,7 @@ const std::vector<Family>& table() {
              s.add("cylinder", {Hd, Hh}, 0, y, 0);
              s.add("box", {outer - inner, spoke, spoke}, (inner + outer) / 2, y, 0).repeat(int(p["spokes"])).blend(2).round(spoke * 0.3f);
              if (p["bore"] > 0) s.cut("cylinder", {std::min(p["bore"], Hd - 6), Hh + 10}, 0, y, 0);
+             s.bore_ports(Hh);
              return s.json("hand wheel");
          }},
 
@@ -222,7 +255,9 @@ const std::vector<Family>& table() {
                  const float z = n == 1 ? (z0 + z1) / 2 : z0 + (z1 - z0) * i / (n - 1);
                  s.cut("cylinder", {h, T + 10}, 0, T / 2, z);
                  s.cut("cone", {h, h * 2.1f, h * 0.55f}, 0, T - h * 0.275f + 0.01f, z);  // countersink
+                 s.port("hole_" + std::to_string(i + 1), 0, T, z, 0, 1, 0);
              }
+             s.port("back", 0, 0, 0, 0, -1, 0);  // the side that goes against the wall
              return s.json("wall hook");
          }},
 
@@ -269,6 +304,7 @@ const std::vector<Family>& table() {
              s.add("box", {tooth_h + 0.5f, T, tooth_w}, df / 2 + tooth_h / 2 - 0.25f, T / 2, 0).repeat(int(z)).round(std::min(tooth_w, tooth_h) * 0.2f);
              if (hub) s.add("cylinder", {hub, top}, 0, top / 2, 0).blend(1);
              if (p["bore"] > 0) s.cut("cylinder", {std::min(p["bore"], df - 6), top + 10}, 0, top / 2, 0);
+             s.bore_ports(top);
              return s.json(std::to_string(int(z)) + "-tooth spur gear");
          }},
 
@@ -281,6 +317,7 @@ const std::vector<Family>& table() {
              Parts s("steel");
              s.add("cylinder", {O, T}, 0, T / 2, 0);
              s.cut("cylinder", {I, T + 10}, 0, T / 2, 0);
+             s.bore_ports(T);
              return s.json("washer");
          }},
 
@@ -295,6 +332,7 @@ const std::vector<Family>& table() {
              if (p["sides"] >= 3) s.add("prism", {A, L, p["sides"]}, 0, L / 2, 0);
              else s.add("cylinder", {A, L}, 0, L / 2, 0);
              s.cut("cylinder", {h, L + 10}, 0, L / 2, 0);
+             s.bore_ports(L);
              return s.json("standoff");
          }},
 
@@ -318,8 +356,72 @@ const std::vector<Family>& table() {
                  const float yu = T + 3 + h / 2 + t * (B - T - 6 - h);
                  s.cut("cylinder", {h, T + 10}, 0, T / 2, zb);
                  s.cut("cylinder", {h, T + 10}, 0, yu, -A / 2 + T / 2).rotate(90, 0, 0);
+                 const std::string k = std::to_string(i + 1);
+                 s.port("base_hole_" + k, 0, T, zb, 0, 1, 0).port("base_hole_" + k + "_under", 0, 0, zb, 0, -1, 0);
+                 s.port("upright_hole_" + k, 0, yu, -A / 2 + T, 0, 0, 1).port("upright_hole_" + k + "_back", 0, yu, -A / 2, 0, 0, -1);
              }
              return s.json("L-bracket");
+         }},
+
+        {{"bolt", "ISO hex bolt with a real (modelled) thread. Give the size: M8 x 30 -> thread 8, length 30. Coarse pitch and head size follow ISO. Also: screw, hex screw, machine bolt.",
+          {{"thread", 8, 3, 24, false, "thread diameter (M size)"},
+           {"length", 30, 6, 120, false, "shank length under the head"},
+           {"thread_length", 0, 0, 120, false, "threaded length from the tip (0 = all of it)"}}},
+         [](Params& p, std::vector<std::string>&) {
+             const float M = p["thread"], L = p["length"];
+             const float pitch = iso_pitch(M), k = 0.65f * M, AF = nut_across_flats(M);
+             const float Lt = p["thread_length"] > 0 ? std::min(p["thread_length"], L) : L;
+             Parts s("steel");
+             s.add("prism", {AF, k, 6}, 0, k / 2, 0);  // printed head down, shank up
+             if (Lt < L) s.add("cylinder", {M, L - Lt + 0.5f}, 0, k + (L - Lt + 0.5f) / 2, 0);
+             s.add("thread", {M, Lt, pitch}, 0, k + L - Lt / 2, 0);
+             s.port("under_head", 0, k, 0, 0, 1, 0).port("tip", 0, k + L, 0, 0, 1, 0).port("head", 0, 0, 0, 0, -1, 0);
+             char name[48];
+             std::snprintf(name, sizeof name, "M%g x %g bolt", M, L);
+             return s.json(name);
+         }},
+
+        {{"shaft", "Round shaft or axle, with an optional D-flat or keyway for a wheel or gear. Also: axle, pin, rod, spindle.",
+          {{"diameter", 8, 2, 50, false, "diameter"},
+           {"length", 60, 10, 200, false, "length"},
+           {"flat", 0, 0, 10, false, "depth of a D-flat along the top half (0 = none)"},
+           {"keyway", 0, 0, 14, false, "keyway width along the top half (0 = none)"}}},
+         [](Params& p, std::vector<std::string>&) {
+             const float D = p["diameter"], L = p["length"], c = std::min(D * 0.1f, 1.f);
+             Parts s("steel");
+             s.add("cylinder", {D, L - 2 * c}, 0, L / 2, 0);
+             s.add("cylinder", {D - 2 * c, L}, 0, L / 2, 0);  // with the line above: chamfered ends
+             if (p["flat"] > 0) {
+                 const float f = std::min(p["flat"], D * 0.3f);
+                 s.cut("box", {D, L / 2 + 1, D}, D - f, L * 0.75f + 0.5f, 0);
+             } else if (p["keyway"] > 0) {
+                 const float w = std::min(p["keyway"], D * 0.4f);
+                 s.cut("box", {w, L / 2 - 4, D * 0.3f}, 0, L * 0.75f, D / 2);
+             }
+             s.port("top_end", 0, L, 0, 0, 1, 0).port("bottom_end", 0, 0, 0, 0, -1, 0);
+             return s.json("shaft");
+         }},
+
+        {{"bearing", "Ball bearing as one printed block (outer and inner ring, shields). 608 -> bore 8, outer 22, width 7; 6000 -> 10, 26, 8; 6200 -> 10, 30, 9. Also: ball bearing, skate bearing.",
+          {{"bore", 8, 2, 60, false, "inner (bore) diameter"},
+           {"outer", 22, 6, 120, false, "outer diameter"},
+           {"width", 7, 2, 40, false, "width"}}},
+         [](Params& p, std::vector<std::string>& notes) {
+             const float B = p["bore"], W = p["width"];
+             float O = p["outer"];
+             if (O < B + 6) {
+                 O = B + 6;
+                 notes.push_back("outer increased to leave room for the rings");
+             }
+             const float ring = std::max((O - B) * 0.18f, 1.2f), recess = std::min(0.6f, W * 0.1f);
+             Parts s("steel");
+             s.add("cylinder", {O, W}, 0, W / 2, 0);
+             s.cut("cylinder", {O - 2 * ring, 2 * recess}, 0, W, 0);  // shields, slightly recessed
+             s.cut("cylinder", {O - 2 * ring, 2 * recess}, 0, 0, 0);
+             s.add("cylinder", {B + 2 * ring, W}, 0, W / 2, 0);       // inner ring, flush
+             s.cut("cylinder", {B, W + 10}, 0, W / 2, 0);
+             s.bore_ports(W);
+             return s.json("ball bearing");
          }},
     };
     return t;

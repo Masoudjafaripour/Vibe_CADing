@@ -2,6 +2,7 @@
 // "Try Vibe-CADing": an open LLM in the visitor's browser (WebLLM / WebGPU) writes a
 // part spec; the C++ engine, compiled to WebAssembly, builds and checks it.
 import prompt from "../../../src/live_cad/prompt.json";
+import assembly from "../../../src/live_cad/assembly_prompt.json";
 import models from "../../../src/live_cad/web_models.json";
 import { asset } from "../data/site";
 import SectionHead from "./SectionHead.astro";
@@ -39,6 +40,14 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
           <button id="live-run" type="button" class:list={[btn, "border-signal bg-signal text-white hover:border-signal hover:opacity-90"]}>Generate</button>
         </div>
         <button id="live-replay" type="button" class:list={[btn, "mt-3"]}>No download: run a recorded answer</button>
+        <div class="mt-3 flex flex-wrap items-center gap-3 border border-warn/40 bg-warn-soft/60 p-3">
+          <p class="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
+            <span class="mr-1 font-mono text-[11px] tracking-[0.1em] text-warn uppercase">Heads-up</span>
+            The model uses up to 3.4 GB of your GPU's memory, so your computer may slow down while it runs.
+            It is freed after 3 idle minutes, or now:
+          </p>
+          <button id="live-unload" type="button" disabled class:list={[btn, "py-1.5"]}>Free GPU memory</button>
+        </div>
 
         <div class="mt-5 border-t border-line pt-4">
           <div class="h-1 bg-line"><div id="live-progress" class="h-1 bg-signal transition-[width]" style="width:0%"></div></div>
@@ -77,6 +86,69 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
         </div>
       </div>
     </div>
+    <!-- assembly: the parts made above, put together from a text instruction -->
+    <div class="mt-12 grid gap-6 lg:grid-cols-[1fr_1fr] lg:items-end">
+      <h3 class="display text-2xl leading-tight font-semibold">Then assemble them</h3>
+      <p class="max-w-xl text-[15px] leading-relaxed text-muted lg:justify-self-end">
+        The same model reads your instruction and connects named <em class="text-ink">ports</em> (a bolt hole, a shaft end).
+        The C++ engine places each part, makes copies ("a bolt in every hole") and checks for collisions.
+      </p>
+    </div>
+    <div class="mt-6 grid gap-5 lg:grid-cols-[1fr_1.25fr]">
+      <div class="frame flex min-w-0 flex-col bg-panel/80 p-4 sm:p-5">
+        <span class="corners"></span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="label">Parts made above</span>
+          <button id="asm-demo" type="button" class="font-mono text-[11px] tracking-[0.1em] text-muted uppercase hover:text-ink">Load demo parts</button>
+        </div>
+        <ul id="asm-parts" class="mt-2 flex min-h-[2.25rem] flex-wrap gap-1.5">
+          <li id="asm-none" class="py-1 text-[12px] text-faint">Generate or replay parts above; each good one lands here.</li>
+        </ul>
+        <label for="asm-prompt" class="label mt-5">Instruction</label>
+        <textarea id="asm-prompt" rows="2" maxlength="200" class="mt-2 w-full resize-none border border-line-strong bg-bg p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-signal">{assembly.demo.instructions[0]}</textarea>
+        <div class="mt-3 flex flex-wrap gap-1.5" id="asm-suggest">
+          {assembly.demo.instructions.map((s) => (
+            <button type="button" data-suggest={s} class="border border-line px-2 py-1 text-left text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink">{s}</button>
+          ))}
+        </div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <button id="asm-run" type="button" class:list={[btn, "border-signal bg-signal text-white hover:border-signal hover:opacity-90"]}>Assemble</button>
+          <button id="asm-replay" type="button" class:list={[btn]}>No download: recorded demo</button>
+        </div>
+        <div class="mt-5 border-t border-line pt-4">
+          <p id="asm-status" class="min-h-[1.25rem] font-mono text-[11px] text-muted" aria-live="polite">Uses the model chosen above.</p>
+          <ol id="asm-log" class="mt-3 space-y-2 font-mono text-[11px] leading-relaxed"></ol>
+        </div>
+      </div>
+
+      <div class="frame min-w-0 bg-panel/60">
+        <span class="corners"></span>
+        <div class="flex items-center justify-between border-b border-line px-3 py-2 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+          <span>Assembly — <span id="asm-name" class="text-ink">none yet</span></span>
+          <span class="hidden sm:inline">Y-up · mm</span>
+        </div>
+        <div class="relative">
+          <canvas id="asm-canvas" class="block aspect-[5/4] w-full cursor-grab touch-none" aria-label="3D view of the assembly"></canvas>
+          <div class="pointer-events-none absolute top-3 left-3 space-y-0.5 font-mono text-[11px] text-muted">
+            <p>PARTS <span id="asm-count" class="text-ink">—</span> · COLLISIONS <span id="asm-collisions" class="text-ink">—</span></p>
+            <p>C++ <span id="asm-ms" class="text-ink">—</span></p>
+          </div>
+          <p id="asm-empty" class="pointer-events-none absolute inset-x-6 top-1/2 -translate-y-1/2 text-center font-mono text-[12px] text-faint">
+            Make a few parts, then describe how they go together.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2">
+          <button id="asm-stl" type="button" disabled class:list={[btn, "py-1.5"]}>Download STL</button>
+          <details class="group min-w-0 flex-1">
+            <summary class="cursor-pointer list-none font-mono text-[11px] tracking-[0.1em] text-muted uppercase select-none hover:text-ink">
+              <span class="mr-1 inline-block transition-transform group-open:rotate-90">›</span> Mates written by the model
+            </summary>
+            <pre id="asm-spec" class="mt-2 max-h-56 overflow-auto bg-bg p-3 font-mono text-[11px] leading-relaxed text-muted">—</pre>
+          </details>
+        </div>
+      </div>
+    </div>
+
     <p class="mt-4 font-mono text-[11px] text-faint">
       Needs WebGPU (desktop Chrome or Edge). The model was chosen by an evaluation on the suggested parts and ten held-out prompts; see
       src/live_cad/README.md. Small models make mistakes: the checks catch broken and unprintable parts, not every wrong shape.
@@ -86,7 +158,12 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
 
 <script>
   import recorded from "../../../src/live_cad/recorded.json";
-  import { generatePart, loadGeometryEngine, loadModel, webgpuStatus, type Attempt, type BuildResult } from "../scripts/live-cad";
+  import assemblyPrompt from "../../../src/live_cad/assembly_prompt.json";
+  import recordedAssembly from "../../../src/live_cad/recorded_assembly.json";
+  import {
+    generateAssembly, generatePart, loadGeometryEngine, loadModel, modelLoaded, unloadModel, webgpuStatus,
+    type AssemblyAttempt, type Attempt, type BuildResult, type PartSpecs,
+  } from "../scripts/live-cad";
 
   const $ = (id: string) => document.getElementById(id)!;
   const canvas = $("live-canvas") as HTMLCanvasElement;
@@ -142,6 +219,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     $("live-spec").textContent = written + (a.result.expanded ? "\n\n// expanded by the C++ engine:\n" + a.result.expanded : "") +
       (a.result.notes?.length ? "\n\n// notes: " + a.result.notes.join("; ") : "");
     show(a.result);
+    if (a.result.ok && a.result.verdict !== "not printable") addPart(a.spec, a.result.name || "part");
   }
 
   function reset() {
@@ -170,12 +248,13 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
         onToken: (t) => ($("live-spec").textContent = t),
         onResult: (a, n) => logAttempt(a, n),
       });
-      status("Done. Drag to orbit; download the STL to print it.");
+      status("Done. Drag to orbit; download the STL to print it. The part was added to the assembly panel below.");
     } catch (err) {
       status(`Error: ${err instanceof Error ? err.message : err}`);
     } finally {
       busy = false; runBtn.disabled = replayBtn.disabled = false;
-      if (!gpuOk) runBtn.disabled = true;
+      if (!gpuOk) runBtn.disabled = asmRun.disabled = true;
+      touchModel();
     }
   });
 
@@ -208,10 +287,160 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     gpuOk = s.ok;
     gpuF16 = s.f16;
     if (!s.ok) {
-      runBtn.disabled = true;
+      runBtn.disabled = asmRun.disabled = true;
       status(`${s.reason} You can still run a recorded answer: the geometry engine runs without WebGPU.`);
     } else {
       status(s.f16 ? "WebGPU ready." : "WebGPU ready (no f16 support: using the f32 build of the model).");
     }
+  });
+
+  // ---- GPU memory: free on request, or after a few idle minutes ----
+  const unloadBtn = $("live-unload") as HTMLButtonElement;
+  const IDLE_MS = 3 * 60_000;
+  let idleTimer = 0;
+  function touchModel() {
+    unloadBtn.disabled = !modelLoaded();
+    clearTimeout(idleTimer);
+    if (modelLoaded()) idleTimer = window.setTimeout(() => freeModel("GPU memory freed after 3 idle minutes."), IDLE_MS);
+  }
+  async function freeModel(message: string) {
+    if (busy || !modelLoaded()) return;
+    clearTimeout(idleTimer);
+    await unloadModel();
+    unloadBtn.disabled = true;
+    status(message + " The next Generate reloads the model from the browser cache (no download).");
+  }
+  unloadBtn.addEventListener("click", () => freeModel("GPU memory freed."));
+
+  // ---- assembly ----
+  const asmCanvas = $("asm-canvas") as HTMLCanvasElement;
+  const asmPrompt = $("asm-prompt") as HTMLTextAreaElement;
+  const asmRun = $("asm-run") as HTMLButtonElement;
+  const asmReplay = $("asm-replay") as HTMLButtonElement;
+  const asmStl = $("asm-stl") as HTMLButtonElement;
+  const asmStatus = (t: string) => ($("asm-status").textContent = t);
+  const MAX_PARTS = 8;
+  let bin: { id: string; name: string; spec: string }[] = [];
+  let asmViewer: { show(p: Float32Array, i: Uint32Array, c: Float32Array): void } | null = null;
+
+  document.querySelectorAll<HTMLButtonElement>("#asm-suggest [data-suggest]").forEach((b) =>
+    b.addEventListener("click", () => (asmPrompt.value = b.dataset.suggest!)));
+
+  function renderBin() {
+    const ul = $("asm-parts");
+    ul.replaceChildren();
+    if (!bin.length) {
+      const li = document.createElement("li");
+      li.className = "py-1 text-[12px] text-faint";
+      li.textContent = "Generate or replay parts above; each good one lands here.";
+      ul.append(li);
+      return;
+    }
+    for (const part of bin) {
+      const li = document.createElement("li");
+      li.className = "flex items-center gap-1.5 border border-line-strong bg-bg py-1 pr-1 pl-2 text-[12px]";
+      const label = document.createElement("span");
+      label.innerHTML = `<span class="font-mono text-faint">${part.id}</span> `;
+      label.append(part.name);
+      const x = document.createElement("button");
+      x.type = "button";
+      x.className = "px-1 text-faint hover:text-bad";
+      x.setAttribute("aria-label", `Remove ${part.name}`);
+      x.textContent = "×";
+      x.addEventListener("click", () => { bin = bin.filter((b) => b !== part); renderBin(); });
+      li.append(label, x);
+      ul.append(li);
+    }
+  }
+  function addPart(spec: string, name: string) {
+    const compact = (() => { try { return JSON.stringify(JSON.parse(spec)); } catch { return spec; } })();
+    if (bin.some((b) => b.spec === compact)) return;
+    if (bin.length >= MAX_PARTS) bin.shift();
+    let n = 1;
+    while (bin.some((b) => b.id === `p${n}`)) n++;
+    bin.push({ id: `p${n}`, name, spec: compact });
+    renderBin();
+  }
+  const binSpecs = (): PartSpecs => Object.fromEntries(bin.map((b) => [b.id, b.spec]));
+  function loadDemoParts() {
+    bin = assemblyPrompt.demo.parts.map((p) => ({ id: p.id, name: p.spec.name, spec: JSON.stringify(p.spec) }));
+    renderBin();
+  }
+  $("asm-demo").addEventListener("click", loadDemoParts);
+
+  async function showAssembly(a: AssemblyAttempt, n: number, extra = "") {
+    const r = a.result;
+    const li = document.createElement("li");
+    li.className = "border-l-2 pl-3 " + (r.feedback ? "border-bad" : "border-ok");
+    const head = document.createElement("p");
+    head.innerHTML = `<span class="text-faint">ATTEMPT ${n}</span> <span class="${r.ok ? "text-ok" : "text-bad"}">${r.ok ? "assembled" : "problems"}</span>` +
+      (a.seconds ? ` <span class="text-faint">· ${a.seconds.toFixed(1)} s</span>` : "") + extra;
+    li.append(head);
+    const body = document.createElement("p");
+    body.className = "text-muted whitespace-pre-line";
+    body.textContent = r.feedback ? r.feedback + (n <= 2 ? "\n→ sent back to the model" : "") : r.notes.join("\n");
+    li.append(body);
+    $("asm-log").append(li);
+    $("asm-spec").textContent = (() => { try { return JSON.stringify(JSON.parse(a.mates), null, 2); } catch { return a.mates; } })();
+    if (!r.positions) return;
+    asmViewer ??= (await import("../scripts/mesh-viewer")).mountMeshViewer(asmCanvas);
+    asmViewer.show(r.positions, r.indices!, r.colors!);
+    $("asm-empty").hidden = true;
+    $("asm-name").textContent = r.name || "assembly";
+    $("asm-count").textContent = String(r.placed.length);
+    $("asm-collisions").textContent = String(r.overlaps);
+    $("asm-ms").textContent = `${r.ms.toFixed(0)} ms (place + collisions + meshes)`;
+    asmStl.disabled = false;
+  }
+
+  asmRun.addEventListener("click", async () => {
+    if (busy) return;
+    if (bin.length < 2) return asmStatus("Make at least two parts above first (or load the demo parts).");
+    busy = true; asmRun.disabled = asmReplay.disabled = runBtn.disabled = true;
+    $("asm-log").replaceChildren();
+    asmStl.disabled = true;
+    try {
+      const eng = await engine();
+      const opt = modelSel.selectedOptions[0];
+      asmStatus(`Loading ${opt.textContent}…`);
+      await loadModel(!gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value, (f, t) => { progress(f); asmStatus(t.length > 110 ? t.slice(0, 110) + "…" : t); });
+      await generateAssembly(eng, binSpecs(), asmPrompt.value.trim(), {
+        onAttempt: (n) => asmStatus(n === 1 ? "The model is writing the mates…" : `Repair ${n - 1}: the model is fixing the mates…`),
+        onToken: (t) => ($("asm-spec").textContent = t),
+        onResult: (a, n) => showAssembly(a, n),
+      });
+      asmStatus("Done. Drag to orbit; download the STL of the whole assembly.");
+    } catch (err) {
+      asmStatus(`Error: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      busy = false; asmRun.disabled = asmReplay.disabled = runBtn.disabled = !gpuOk;
+      asmReplay.disabled = false;
+      touchModel();
+    }
+  });
+
+  asmReplay.addEventListener("click", async () => {
+    if (busy) return;
+    loadDemoParts();
+    $("asm-log").replaceChildren();
+    const answers = recordedAssembly.answers as Record<string, string>;
+    const key = answers[asmPrompt.value.trim()] ? asmPrompt.value.trim() : Object.keys(answers)[0];
+    asmPrompt.value = key;
+    const eng = await engine();
+    const t0 = performance.now();
+    const result = eng.assemble(JSON.stringify(binSpecs()), answers[key], 80);
+    await showAssembly({ mates: answers[key], result, seconds: 0 }, 1,
+      ` <span class="text-faint">· recorded answer from ${recordedAssembly.model}, assembled live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
+    asmStatus(`Demo parts and a recorded answer from ${recordedAssembly.model}; placement, collisions and meshes computed now in C++.`);
+  });
+
+  asmStl.addEventListener("click", async () => {
+    const bytes = (await engine()).assemblyStl();
+    const url = URL.createObjectURL(new Blob([bytes], { type: "model/stl" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ($("asm-name").textContent || "assembly").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + ".stl";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   });
 </script>

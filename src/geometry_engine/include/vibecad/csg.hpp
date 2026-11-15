@@ -17,7 +17,7 @@
 
 namespace vibecad::csg {
 
-enum class Shape { Box, Cylinder, Sphere, Torus, Capsule, Cone, Prism };
+enum class Shape { Box, Cylinder, Sphere, Torus, Capsule, Cone, Prism, Thread };
 
 struct Part {
     Shape shape = Shape::Box;
@@ -37,10 +37,19 @@ struct Part {
     float sector = 0, sector_offset = 0;
 };
 
+// A named connection point for assemblies: a point on the part and the outward
+// direction of the face or axis there (a bolt hole's top, the end of a shaft).
+struct Port {
+    std::string name;
+    Vec3 at{};
+    Vec3 dir{0, 1, 0};
+};
+
 struct Scene {
     std::string name;
     std::vector<Part> parts;
     std::vector<std::string> warnings;
+    std::vector<Port> ports;  // optional "ports" list in the spec (families write them)
 };
 
 // Parses and validates a spec. Throws SpecError listing every problem found.
@@ -54,8 +63,11 @@ Scene parse_spec(const std::string& json);
 float distance(const Scene& scene, const Vec3& p);
 float part_distance(const Part& part, const Vec3& p);
 
-// Axis-aligned bounds of the solid (from the add parts), mm.
+// Axis-aligned bounds of the solid (from the add parts), mm. bounds() is conservative
+// (bounding spheres, used for sampling); tight_bounds() boxes each primitive exactly
+// (used for assembly ports: the "top" of a flat plate is its top face).
 void bounds(const Scene& scene, Vec3& lo, Vec3& hi);
+void tight_bounds(const Scene& scene, Vec3& lo, Vec3& hi);
 
 struct BuildOptions {
     int resolution = 112;     // grid cells along the longest side

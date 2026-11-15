@@ -1,0 +1,119 @@
+{
+  "system": "You are a mechanical assembler. You get a list of parts that were already designed, each with named ports, and an instruction. You answer with mates that put the parts together as instructed. Use only the part ids and port names listed. Output only the JSON.\n\n{{ASSEMBLY_GUIDE}}",
+  "user": "Parts:\n{{PARTS}}\nInstruction: {{INSTRUCTION}}",
+  "examples": [
+    {
+      "parts": {
+        "p1": "{\"name\": \"L-bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 2, \"hole_diameter\": 5.5}}",
+        "p2": "{\"name\": \"M5 bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 5, \"length\": 16}}",
+        "p3": "{\"name\": \"M5 nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 5}}"
+      },
+      "instruction": "Bolt through each hole in the upright, with a nut behind each one",
+      "mates": {
+        "name": "bracket bolted through the upright",
+        "mates": [
+          {
+            "part": "p2",
+            "port": "under_head",
+            "to": "p1",
+            "to_port": "upright_hole_1",
+            "each": true
+          },
+          {
+            "part": "p3",
+            "port": "bore_top",
+            "to": "p1",
+            "to_port": "upright_hole_1_back",
+            "each": true
+          }
+        ]
+      }
+    },
+    {
+      "parts": {
+        "p1": "{\"name\": \"shaft\", \"family\": \"shaft\", \"params\": {\"diameter\": 10, \"length\": 80}}",
+        "p2": "{\"name\": \"gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 30, \"bore\": 10.4}}"
+      },
+      "instruction": "Mount the gear on the shaft, 12 mm below its top",
+      "mates": {
+        "name": "gear on a shaft",
+        "mates": [
+          {
+            "part": "p2",
+            "port": "bore_bottom",
+            "to": "p1",
+            "to_port": "top_end",
+            "offset": -12
+          }
+        ]
+      }
+    }
+  ],
+  "demo": {
+    "parts": [
+      {
+        "id": "p1",
+        "prompt": "A pipe flange with six bolt holes",
+        "spec": {
+          "name": "pipe flange",
+          "family": "flange",
+          "params": {
+            "count": 6,
+            "hole_diameter": 9
+          }
+        }
+      },
+      {
+        "id": "p2",
+        "prompt": "An M8 x 25 hex bolt",
+        "spec": {
+          "name": "M8 x 25 bolt",
+          "family": "bolt",
+          "params": {
+            "thread": 8,
+            "length": 25
+          }
+        }
+      },
+      {
+        "id": "p3",
+        "prompt": "An M8 hex nut",
+        "spec": {
+          "name": "M8 hex nut",
+          "family": "hex_nut",
+          "params": {
+            "thread": 8
+          }
+        }
+      },
+      {
+        "id": "p4",
+        "prompt": "An 8 mm shaft, 70 mm long",
+        "spec": {
+          "name": "shaft",
+          "family": "shaft",
+          "params": {
+            "diameter": 8,
+            "length": 70
+          }
+        }
+      },
+      {
+        "id": "p5",
+        "prompt": "A hand wheel with five spokes",
+        "spec": {
+          "name": "hand wheel",
+          "family": "hand_wheel",
+          "params": {
+            "spokes": 5,
+            "bore": 8.4
+          }
+        }
+      }
+    ],
+    "instructions": [
+      "Put a bolt through every hole of the flange and a nut under each one",
+      "Stand the shaft in the centre hole of the flange and slide the wheel 20 mm onto its top"
+    ]
+  }
+}

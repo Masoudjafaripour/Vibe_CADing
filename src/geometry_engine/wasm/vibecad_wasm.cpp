@@ -5,6 +5,7 @@
 #include <emscripten/val.h>
 
 #include "vibecad/csg.hpp"
+#include "vibecad/assembly.hpp"
 
 using namespace emscripten;
 using namespace vibecad;
@@ -65,9 +66,61 @@ val stl() {
     return copy_array("Uint8Array", reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
 }
 
+csg::AssemblyResult last_assembly;
+
+// Parts ({id: spec}) + mates -> placed parts, collisions, merged mesh and feedback.
+val assemble(const std::string& parts, const std::string& mates, int resolution) {
+    csg::AssemblyOptions o;
+    o.resolution = resolution;
+    last_assembly = csg::assemble(parts, mates, o);
+    const csg::AssemblyResult& r = last_assembly;
+    val out = val::object();
+    out.set("ok", r.ok);
+    out.set("name", r.name);
+    out.set("feedback", r.feedback);
+    out.set("errors", strings(r.errors));
+    out.set("notes", strings(r.notes));
+    if (!r.mesh.triangles.empty()) {
+        out.set("positions", copy_array("Float32Array", reinterpret_cast<const float*>(r.mesh.vertices.data()), r.mesh.vertices.size() * 3));
+        out.set("indices", copy_array("Uint32Array", reinterpret_cast<const uint32_t*>(r.mesh.triangles.data()), r.mesh.triangles.size() * 3));
+        out.set("colors", copy_array("Float32Array", reinterpret_cast<const float*>(r.colors.data()), r.colors.size() * 3));
+    }
+    val placed = val::array();
+    for (const auto& p : r.placed) {
+        val o2 = val::object();
+        o2.set("id", p.id), o2.set("of", p.of), o2.set("name", p.name);
+        placed.call<void>("push", o2);
+    }
+    out.set("placed", placed);
+    out.set("overlaps", double(r.overlaps.size()));
+    out.set("triangles", double(r.mesh.triangles.size()));
+    out.set("ms", r.ms);
+    return out;
+}
+
+// Port names of a part; empty if the spec does not build.
+val part_ports(const std::string& spec) {
+    std::vector<std::string> names;
+    try {
+        for (const auto& p : csg::part_ports(csg::scene_of(spec))) names.push_back(p.name);
+    } catch (const csg::SpecError&) {
+    }
+    return strings(names);
+}
+
+val assembly_stl() {
+    const std::vector<char> bytes = csg::stl_bytes(last_assembly.mesh);
+    return copy_array("Uint8Array", reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+}
+
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(vibecad) {
+    function("assemble", &assemble);
+    function("assemblyStl", &assembly_stl);
+    function("describeParts", &csg::describe_parts);
+    function("partPorts", &part_ports);
+    function("assemblyGuide", &csg::assembly_guide);
     function("build", &build);
     function("stl", &stl);
     function("specGuide", &csg::spec_guide);

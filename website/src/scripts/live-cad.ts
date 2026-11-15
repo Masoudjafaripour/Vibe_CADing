@@ -5,17 +5,28 @@
 //          -> problems go back to the LLM (up to MAX_REPAIRS times) -> 3D view + STL
 // Same prompt, schema and loop as src/live_cad/eval_models.py, which chose the model.
 import prompt from "../../../src/live_cad/prompt.json";
+import assemblyPrompt from "../../../src/live_cad/assembly_prompt.json";
 
 export const MAX_REPAIRS = 2;
-// WebLLM builds these models with a 4096-token context: ~2400 for the prompt, so answers are capped
+// WebLLM builds these models with a 4096-token context: ~2900 for the prompt, so answers are capped
 // and a repair sees only the latest attempt and its feedback.
-export const MAX_TOKENS = 700;
+export const MAX_TOKENS = 500;
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 
 export interface Engine {
   build(spec: string, resolution: number, minWall: number, targetTriangles: number): BuildResult;
   stl(): Uint8Array;
   specGuide(): string;
+  assemble(parts: string, mates: string, resolution: number): AssemblyResult;
+  assemblyStl(): Uint8Array;
+  describeParts(parts: string): string;
+  assemblyGuide(): string;
+  partPorts(spec: string): string[];
+}
+export interface AssemblyResult {
+  ok: boolean; name: string; feedback: string; errors: string[]; notes: string[];
+  positions?: Float32Array; indices?: Uint32Array; colors?: Float32Array;
+  placed: { id: string; of: string; name: string }[]; overlaps: number; triangles: number; ms: number;
 }
 export interface BuildResult {
   ok: boolean; name: string; verdict: string; feedback: string;
@@ -62,6 +73,7 @@ export function webgpuStatus(): Promise<{ ok: boolean; f16: boolean; reason?: st
 // ---- LLM (WebLLM in a worker) ----
 type ChatEngine = {
   chat: { completions: { create(req: object): Promise<AsyncIterable<{ choices: { delta: { content?: string } }[] }>> } };
+  unload(): Promise<void>;
 };
 let llm: ChatEngine | null = null;
 let llmModel = "";
@@ -81,7 +93,16 @@ export async function loadModel(modelId: string, onProgress: (fraction: number, 
   llmModel = modelId;
 }
 
-async function complete(messages: Msg[], onToken: (text: string) => void): Promise<string> {
+// Frees the model's GPU memory. The weights stay in the browser cache: loading again needs no download.
+export async function unloadModel() {
+  const engine = llm;
+  llm = null;
+  llmModel = "";
+  if (engine) await engine.unload();
+}
+export const modelLoaded = () => llm !== null;
+
+async function complete(messages: Msg[], onToken: (text: string) => void, schema: object = prompt.schema): Promise<string> {
   const test = testLLM();
   if (test) return test(messages).then((t) => (onToken(t), t));
   if (!llm) throw new Error("model not loaded");
@@ -90,7 +111,7 @@ async function complete(messages: Msg[], onToken: (text: string) => void): Promi
     stream: true,
     temperature: 0,
     max_tokens: MAX_TOKENS,
-    response_format: { type: "json_object", schema: JSON.stringify(prompt.schema) },
+    response_format: { type: "json_object", schema: JSON.stringify(schema) },
     extra_body: { enable_thinking: false },  // Qwen3: answer directly
   });
   let text = "";
@@ -122,6 +143,69 @@ export async function generatePart(engine: Engine, request: string, hooks: {
     hooks.onResult(a, n);
     if (!result.feedback) break;
     messages = [...base, { role: "assistant", content: spec }, { role: "user", content: result.feedback }];
+  }
+  return attempts;
+}
+
+// ---- assembly: the same model writes mates between the parts made above ----
+// Same prompt, schema and loop as src/live_cad/eval_assembly.py.
+export type PartSpecs = Record<string, string>;  // id -> spec JSON
+
+function assemblyUser(engine: Engine, parts: PartSpecs, instruction: string) {
+  return assemblyPrompt.user.replace("{{PARTS}}", engine.describeParts(JSON.stringify(parts))).replace("{{INSTRUCTION}}", instruction);
+}
+
+export function assemblyMessages(engine: Engine, parts: PartSpecs, instruction: string): Msg[] {
+  const msgs: Msg[] = [{ role: "system", content: assemblyPrompt.system.replace("{{ASSEMBLY_GUIDE}}", engine.assemblyGuide()) }];
+  for (const ex of assemblyPrompt.examples) {
+    msgs.push({ role: "user", content: assemblyUser(engine, ex.parts, ex.instruction) },
+              { role: "assistant", content: JSON.stringify(ex.mates) });
+  }
+  msgs.push({ role: "user", content: assemblyUser(engine, parts, instruction) });
+  return msgs;
+}
+
+// Only the real part ids and port names can be written (constrained decoding).
+export function assemblySchema(engine: Engine, parts: PartSpecs) {
+  const ids = Object.keys(parts).sort();
+  const ports = [...new Set(Object.values(parts).flatMap((s) => engine.partPorts(s)))].sort();
+  const mate = {
+    type: "object",
+    properties: {
+      part: { type: "string", enum: ids }, port: { type: "string", enum: ports },
+      to: { type: "string", enum: ids }, to_port: { type: "string", enum: ports },
+      offset: { type: "number" }, angle: { type: "number" }, each: { type: "boolean" },
+    },
+    required: ["part", "port", "to", "to_port"], additionalProperties: false,
+  };
+  return {
+    type: "object",
+    properties: { name: { type: "string" }, mates: { type: "array", minItems: 1, maxItems: 12, items: mate } },
+    required: ["name", "mates"], additionalProperties: false,
+  };
+}
+
+export interface AssemblyAttempt { mates: string; result: AssemblyResult; seconds: number }
+
+export async function generateAssembly(engine: Engine, parts: PartSpecs, instruction: string, hooks: {
+  onAttempt(n: number): void;
+  onToken(text: string): void;
+  onResult(a: AssemblyAttempt, n: number): void;
+}, resolution = 80): Promise<AssemblyAttempt[]> {
+  const attempts: AssemblyAttempt[] = [];
+  const base = assemblyMessages(engine, parts, instruction);
+  const schema = assemblySchema(engine, parts);
+  let messages = base;
+  for (let n = 1; n <= MAX_REPAIRS + 1; n++) {
+    hooks.onAttempt(n);
+    const t0 = performance.now();
+    const mates = await complete(messages, hooks.onToken, schema);
+    const result = engine.assemble(JSON.stringify(parts), mates, resolution);
+    const a = { mates, result, seconds: (performance.now() - t0) / 1000 };
+    attempts.push(a);
+    hooks.onResult(a, n);
+    if (!result.feedback) break;
+    messages = [...base, { role: "assistant", content: mates }, { role: "user", content: result.feedback }];
   }
   return attempts;
 }

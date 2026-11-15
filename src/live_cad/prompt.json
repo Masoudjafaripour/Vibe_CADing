@@ -630,6 +630,117 @@
           "family": {
             "type": "string",
             "enum": [
+              "bolt"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "thread": {
+                "type": "number"
+              },
+              "length": {
+                "type": "number"
+              },
+              "thread_length": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "thread"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "shaft"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "diameter": {
+                "type": "number"
+              },
+              "length": {
+                "type": "number"
+              },
+              "flat": {
+                "type": "number"
+              },
+              "keyway": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "bearing"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "bore": {
+                "type": "number"
+              },
+              "outer": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "family",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "enum": [
               "custom"
             ]
           },
@@ -739,6 +850,8 @@
     "An M12 hex nut",
     "A five-lobed star knob with a hex socket",
     "A spur gear with 24 teeth and an 8 mm bore",
-    "An L bracket with three screw holes per leg"
+    "An L bracket with three screw holes per leg",
+    "An M8 x 30 hex bolt",
+    "A 608 skate bearing"
   ]
 }

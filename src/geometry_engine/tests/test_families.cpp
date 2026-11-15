@@ -27,6 +27,7 @@ int main() {
         {"flange", 7},     {"pulley", 1},         {"knurled_knob", 0}, {"star_knob", 0},
         {"hex_nut", 1},    {"hand_wheel", 6},     {"wall_hook", 2},    {"cable_organizer", 0},
         {"spur_gear", 1},  {"washer", 1},         {"standoff", 1},     {"l_bracket", 4},
+        {"bolt", 0},       {"shaft", 0},          {"bearing", 1},
     };
     check(families().size() == sizeof expected / sizeof expected[0], "every family is tested");
     for (const auto& e : expected) {

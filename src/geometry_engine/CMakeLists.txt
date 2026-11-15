@@ -11,7 +11,7 @@ find_package(OpenMP)  # optional: parallel SDF sampling
 
 add_library(vibecad_geometry src/marching_cubes.cpp src/mesh_stats.cpp src/stl.cpp
             src/printability.cpp src/stl_read.cpp src/simplify.cpp src/mesh_ops.cpp
-            src/json.cpp src/csg.cpp src/families.cpp)
+            src/json.cpp src/csg.cpp src/families.cpp src/assembly.cpp)
 target_include_directories(vibecad_geometry PUBLIC include)
 target_compile_options(vibecad_geometry PUBLIC $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>)
 if(OpenMP_CXX_FOUND)
@@ -69,3 +69,7 @@ add_test(NAME csg COMMAND test_csg)
 add_executable(test_families tests/test_families.cpp)
 target_link_libraries(test_families PRIVATE vibecad_geometry)
 add_test(NAME families COMMAND test_families)
+
+add_executable(test_assembly tests/test_assembly.cpp)
+target_link_libraries(test_assembly PRIVATE vibecad_geometry)
+add_test(NAME assembly COMMAND test_assembly)

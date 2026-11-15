@@ -236,3 +236,26 @@ faster (foot locking is the 341×: a per-frame loop in Python, a tight loop in C
 - ~~sample the GLSL `sdf()` on the GPU and pass the grid to C++~~ done
 - ~~mesh smoothing, simplification~~ done; glTF export done (OBJ still open)
 - use shells / genus as automatic feedback to the LLM ("your legs are not attached")
+
+## Part families, CSG and assemblies (live CAD)
+
+The engine behind the website's "Try it live" section. It is compiled to WebAssembly by
+[`wasm/build.sh`](wasm/build.sh) and also exposed in Python.
+
+| File | What it does |
+|---|---|
+| [`src/csg.cpp`](src/csg.cpp) | JSON part spec → validated CSG of SDF primitives (box, cylinder, sphere, torus, capsule, cone, prism, helical thread), smooth blends and polar repeats → marching cubes → printability verdict and feedback for an LLM |
+| [`src/families.cpp`](src/families.cpp) | 15 parametric families (flange, gear, ISO nut and bolt, bearing, …): a few numbers in, parts with real proportions and named ports out |
+| [`src/assembly.cpp`](src/assembly.cpp) | mates between ports → rigid placement (Rodrigues alignment, offsets, `each` copies) → collision volumes from both distance fields → merged mesh and feedback |
+
+```python
+import json, vibecad_geom as g
+bolt = g.csg_build(json.dumps({"family": "bolt", "params": {"thread": 8, "length": 30}}))
+parts = {"p1": json.dumps({"family": "flange", "params": {"hole_diameter": 9}}), "p2": json.dumps({"family": "bolt", "params": {"thread": 8}})}
+asm = g.csg_assemble(json.dumps(parts), json.dumps({"mates": [
+    {"part": "p2", "port": "under_head", "to": "p1", "to_port": "hole_1_top", "each": True}]}))
+print(asm["ok"], len(asm["placed"]), asm["notes"])   # True 7 ['no collisions between parts']
+```
+
+Tests: `test_csg`, `test_families` (genus of every family), `test_assembly` (placement, copies, collisions,
+feedback). See [`../live_cad/README.md`](../live_cad/README.md) for the method and the model evaluation.

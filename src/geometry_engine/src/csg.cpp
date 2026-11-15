@@ -20,13 +20,13 @@ constexpr float kMaxSize = 200, kMaxReach = 120;  // mm
 
 const std::map<std::string, Shape> kShapes = {
     {"box", Shape::Box},         {"cylinder", Shape::Cylinder}, {"sphere", Shape::Sphere}, {"torus", Shape::Torus},
-    {"capsule", Shape::Capsule}, {"cone", Shape::Cone},         {"prism", Shape::Prism}};
+    {"capsule", Shape::Capsule}, {"cone", Shape::Cone},         {"prism", Shape::Prism},  {"thread", Shape::Thread}};
 // How many size values each shape takes.
 int size_count(Shape s) {
     switch (s) {
         case Shape::Sphere: return 1;
         case Shape::Cylinder: case Shape::Torus: case Shape::Capsule: return 2;
-        default: return 3;  // box, cone, prism (across flats, height, sides)
+        default: return 3;  // box, cone, prism (across flats, height, sides), thread (diameter, length, pitch)
     }
 }
 
@@ -82,6 +82,23 @@ float sd_prism(float x, float y, float z, float apothem, float h, int n) {
     return extrude(d2, y, h);
 }
 
+// External ISO-style screw thread along y: major radius R, half length hl, pitch P.
+// The helix phase u = y/P - theta/2pi picks the profile: a 60-degree trapezoid between the
+// minor radius (root) and R (crest), depth 0.541 P. The flanks have slope tan 60, so the
+// radial distance is scaled by 1/2 to stay a lower bound on the true distance.
+// The ends are chamfered at 45 degrees down to the minor radius.
+float sd_thread(float x, float y, float z, float R, float hl, float P) {
+    const float r = length2(x, z);
+    const float u = y / P - std::atan2(z, x) / (2 * kPi);
+    const float t = u - std::floor(u);
+    const float s = std::abs(t - 0.5f) * 2;  // 0 = middle of the groove, 1 = crest
+    const float depth = 0.5413f * P;
+    const float profile = std::clamp((s - 0.25f) / 0.625f, 0.f, 1.f);
+    const float d = 0.5f * (r - (R - depth + depth * profile));
+    const float chamfer = (r + std::abs(y) - (hl + R - depth)) * 0.70710678f;
+    return std::max({d, std::abs(y) - hl, chamfer});
+}
+
 float sd_local(const Part& p, float x, float y, float z) {
     const auto& s = p.size;
     switch (p.shape) {
@@ -95,6 +112,7 @@ float sd_local(const Part& p, float x, float y, float z) {
         }
         case Shape::Cone: return sd_cone(x, y, z, s[2] / 2, s[0] / 2, s[1] / 2);
         case Shape::Prism: return sd_prism(x, y, z, s[0] / 2, s[1] / 2, p.sides);
+        case Shape::Thread: return sd_thread(x, y, z, s[0] / 2, s[1] / 2, s[2]);
     }
     return 1e9f;
 }
@@ -110,7 +128,7 @@ float bounding_radius(const Part& p) {
     const auto& s = p.size;
     switch (p.shape) {
         case Shape::Box: return length3(s[0], s[1], s[2]) / 2;
-        case Shape::Cylinder: case Shape::Prism: {
+        case Shape::Cylinder: case Shape::Prism: case Shape::Thread: {
             const float r = p.shape == Shape::Prism ? s[0] / 2 / std::cos(kPi / p.sides) : s[0] / 2;
             return length2(r, s[1] / 2);
         }
@@ -190,7 +208,7 @@ Scene parse_spec(const std::string& text) {
         }
         const auto* sh = pv.get("shape");
         if (!sh || !sh->is_string() || !kShapes.count(sh->string)) {
-            problems.push_back(r.where + ": \"shape\" must be one of box, cylinder, sphere, torus, capsule, cone, prism" +
+            problems.push_back(r.where + ": \"shape\" must be one of box, cylinder, sphere, torus, capsule, cone, prism, thread" +
                                (sh && sh->is_string() ? " (got \"" + sh->string + "\")" : ""));
             continue;
         }
@@ -207,6 +225,8 @@ Scene parse_spec(const std::string& text) {
             for (int k = 0; k < (p.shape == Shape::Prism ? 2 : n); ++k)
                 if (!(p.size[k] > 0.2f) || p.size[k] > kMaxSize)
                     problems.push_back(r.where + fmt(": size values must be between 0.2 and %.0f mm", kMaxSize));
+            if (p.shape == Shape::Thread && (p.size[2] < 0.25f || p.size[2] > p.size[0] / 2))
+                problems.push_back(r.where + ": a thread needs a pitch (size[2]) from 0.25 mm to half its diameter");
             if (p.shape == Shape::Torus && p.size[1] >= p.size[0])
                 problems.push_back(r.where + ": a torus needs tube diameter (size[1]) smaller than ring diameter (size[0])");
         }
@@ -244,6 +264,26 @@ Scene parse_spec(const std::string& text) {
             p.sector_offset = std::atan2(p.at[2], p.at[0]);
         }
         scene.parts.push_back(p);
+    }
+    if (const auto* ports = root.get("ports"); ports && ports->is_array()) {
+        for (const auto& pv : ports->array) {
+            const auto* n = pv.get("name");
+            const auto* at = pv.get("at");
+            const auto* dir = pv.get("dir");
+            if (!n || !n->is_string() || !at || !at->is_array() || at->array.size() != 3 || !dir || !dir->is_array() || dir->array.size() != 3)
+                continue;
+            Port port;
+            port.name = n->string;
+            float len = 0;
+            for (int k = 0; k < 3; ++k) {
+                port.at[k] = at->array[k].is_number() ? float(at->array[k].number) : 0;
+                port.dir[k] = dir->array[k].is_number() ? float(dir->array[k].number) : 0;
+                len += port.dir[k] * port.dir[k];
+            }
+            if (len < 1e-6f) continue;
+            for (float& c : port.dir) c /= std::sqrt(len);
+            scene.ports.push_back(port);
+        }
     }
     if (!scene.parts.empty() && scene.parts[0].cut) problems.push_back("part 1 must be \"add\" (there is nothing to cut from yet)");
     if (std::none_of(scene.parts.begin(), scene.parts.end(), [](const Part& p) { return !p.cut; }))
@@ -312,6 +352,41 @@ void bounds(const Scene& scene, Vec3& lo, Vec3& hi) {
         const float ext = rho + rb;
         lo = {std::min(lo[0], cx - ext), std::min(lo[1], p.at[1] - rb), std::min(lo[2], cz - ext)};
         hi = {std::max(hi[0], cx + ext), std::max(hi[1], p.at[1] + rb), std::max(hi[2], cz + ext)};
+    }
+}
+
+void tight_bounds(const Scene& scene, Vec3& lo, Vec3& hi) {
+    lo = {1e9f, 1e9f, 1e9f};
+    hi = {-1e9f, -1e9f, -1e9f};
+    for (const Part& p : scene.parts) {
+        if (p.cut) continue;
+        const auto& s = p.size;
+        Vec3 h{};  // half extents of the primitive in its own frame
+        switch (p.shape) {
+            case Shape::Box: h = {s[0] / 2, s[1] / 2, s[2] / 2}; break;
+            case Shape::Cylinder: case Shape::Thread: h = {s[0] / 2, s[1] / 2, s[0] / 2}; break;
+            case Shape::Sphere: h = {s[0] / 2, s[0] / 2, s[0] / 2}; break;
+            case Shape::Torus: h = {(s[0] + s[1]) / 2, s[1] / 2, (s[0] + s[1]) / 2}; break;
+            case Shape::Capsule: h = {s[0] / 2, std::max(s[1], s[0]) / 2, s[0] / 2}; break;
+            case Shape::Cone: h = {std::max(s[0], s[1]) / 2, s[2] / 2, std::max(s[0], s[1]) / 2}; break;
+            case Shape::Prism: {
+                const float r = s[0] / 2 / std::cos(kPi / p.sides);
+                h = {r, s[1] / 2, r};
+                break;
+            }
+        }
+        const auto& m = p.world_to_local;  // local -> world is its transpose
+        Vec3 plo{1e9f, 1e9f, 1e9f}, phi{-1e9f, -1e9f, -1e9f};
+        float rmax = 0;
+        for (int c = 0; c < 8; ++c) {
+            const float x = c & 1 ? h[0] : -h[0], y = c & 2 ? h[1] : -h[1], z = c & 4 ? h[2] : -h[2];
+            const Vec3 w{m[0] * x + m[3] * y + m[6] * z + p.at[0], m[1] * x + m[4] * y + m[7] * z + p.at[1],
+                         m[2] * x + m[5] * y + m[8] * z + p.at[2]};
+            for (int d = 0; d < 3; ++d) plo[d] = std::min(plo[d], w[d]), phi[d] = std::max(phi[d], w[d]);
+            rmax = std::max(rmax, length2(w[0], w[2]));
+        }
+        if (p.repeat > 1) plo[0] = plo[2] = -rmax, phi[0] = phi[2] = rmax;  // copies sweep a circle
+        for (int d = 0; d < 3; ++d) lo[d] = std::min(lo[d], plo[d]), hi[d] = std::max(hi[d], phi[d]);
     }
 }
 
@@ -443,7 +518,11 @@ BuildResult build(const std::string& input, const BuildOptions& opt) {
         const std::string msg = fmt("%.1f%% of the material is thinner than %.1f mm", 100 * thin, opt.min_wall) +
                                 (p ? " (mostly " + p->label + ")" : "") + "; thin features may break or not print.";
         out.notes.push_back(msg);
-        if (thin > 0.02) {
+        if (p && p->shape == Shape::Thread) {
+            // Thread teeth are thin by design (an M8 tooth is ~0.7 mm deep): advice, not a defect.
+            out.notes.back() = fmt("Thread teeth are finer than %.1f mm: print upright with a 0.4 mm nozzle and 0.12 to 0.16 mm "
+                                   "layers, or use a larger thread.", opt.min_wall);
+        } else if (thin > 0.02) {
             critical = true;
             fixes.push_back(msg + fmt(" Make walls and pins at least %.1f mm thick.", opt.min_wall * 1.5));
         }

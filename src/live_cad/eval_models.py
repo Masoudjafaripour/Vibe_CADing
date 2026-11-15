@@ -24,7 +24,7 @@ with open(os.path.join(HERE, "prompt.json")) as f:
 SYSTEM = PROMPT["system"].replace("{{SPEC_GUIDE}}", g.spec_guide())
 MAX_REPAIRS = 2
 Q4 = os.environ.get("EVAL_Q4") == "1"  # simulate the browser's 4-bit weights
-MAX_TOKENS = 700  # WebLLM's builds have a 4096-token context; the prompt takes ~2400
+MAX_TOKENS = 500  # WebLLM's builds have a 4096-token context; the prompt takes ~2900
 
 
 def messages_for(prompt):
@@ -78,6 +78,9 @@ ADHERENCE = {
     "A spur gear with 24 teeth and an 8 mm bore": lambda ps, r: _count(ps, "add", 24) and r["genus"] == 1 and any(
         p["shape"] == "cylinder" and p.get("op") == "cut" and abs(p["size"][0] - 8) < 0.5 for p in ps),
     "An L bracket with three screw holes per leg": lambda ps, r: r["genus"] == 6 and r["size_mm"][1] > 15,
+    "An M8 x 30 hex bolt": lambda ps, r: any(p["shape"] == "thread" and abs(p["size"][0] - 8) < 0.5 and abs(p["size"][2] - 1.25) < 0.01
+                                             for p in ps) and 34 <= r["size_mm"][2] <= 37,
+    "A 608 skate bearing": lambda ps, r: r["genus"] == 1 and abs(r["size_mm"][0] - 22) < 1 and abs(r["size_mm"][2] - 7) < 0.6,
 }
 
 
@@ -101,6 +104,8 @@ HELD_OUT = {
     "Valve wheel, 3 spokes, 150 mm": ("hand_wheel", {"spokes": 3, "diameter": 150}),
     "A 12 mm bore pulley, 80 mm diameter": ("pulley", {"bore": 12, "diameter": 80}),
     "Corner bracket, 60 mm legs, one hole each": ("l_bracket", {"holes": 1, "base_length": 60, "upright_length": 60}),
+    "M6 screw, 20 long": ("bolt", {"thread": 6, "length": 20}),
+    "Axle 12 mm thick and 100 mm long with a flat": ("shaft", {"diameter": 12, "length": 100}),
 }
 
 
@@ -132,15 +137,16 @@ class Model:
         if Q4:
             fake_q4f16_1(self.model)
         info = xgr.TokenizerInfo.from_huggingface(self.tok, vocab_size=self.model.config.get_text_config().vocab_size)
-        self.grammar = xgr.GrammarCompiler(info).compile_json_schema(json.dumps(PROMPT["schema"]))
+        self.compiler = xgr.GrammarCompiler(info)
+        self.grammar = self.compiler.compile_json_schema(json.dumps(PROMPT["schema"]))
 
-    def generate(self, msgs):
+    def generate(self, msgs, grammar=None):
         kw = {"enable_thinking": False} if "Qwen3" in self.name else {}
         text = self.tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, **kw)
         ids = self.tok(text, return_tensors="pt").to("cuda")
         t0 = time.perf_counter()
         out = self.model.generate(**ids, max_new_tokens=MAX_TOKENS, do_sample=False,
-                                  logits_processor=[LogitsProcessor(self.grammar)])
+                                  logits_processor=[LogitsProcessor(grammar or self.grammar)])
         new = out[0][ids["input_ids"].shape[1]:]
         return self.tok.decode(new, skip_special_tokens=True), len(new), time.perf_counter() - t0
 

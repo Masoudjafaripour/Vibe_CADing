@@ -10,6 +10,8 @@
     "An M12 hex nut": "{\"name\": \"M12 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 12}}",
     "A five-lobed star knob with a hex socket": "{\"name\": \"star knob\", \"family\": \"star_knob\", \"params\": {\"lobes\": 5, \"socket\": 10}}",
     "A spur gear with 24 teeth and an 8 mm bore": "{\"name\": \"spur gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 8, \"bore\": 8}}",
-    "An L bracket with three screw holes per leg": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}"
+    "An L bracket with three screw holes per leg": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}",
+    "An M8 x 30 hex bolt": "{\"name\": \"M8 bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 8, \"length\": 30, \"thread_length\": 28}}",
+    "A 608 skate bearing": "{\"name\": \"608 skate bearing\", \"family\": \"bearing\", \"params\": {\"bore\": 8, \"outer\": 22, \"width\": 7}}"
   }
 }

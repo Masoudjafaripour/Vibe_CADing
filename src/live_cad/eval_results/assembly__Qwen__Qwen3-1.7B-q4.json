@@ -1,0 +1,90 @@
+[
+  {
+    "instruction": "Put a bolt through every hole of the flange and a nut under each one",
+    "answer": "{\"name\": \"flange bolted through the holes\", \"mates\": [{\"part\": \"p2\", \"port\": \"under_head\", \"to\": \"p1\", \"to_port\": \"hole_1_top\", \"each\": true}, {\"part\": \"p3\", \"port\": \"bore_top\", \"to\": \"p1\", \"to_port\": \"hole_1_bottom\", \"each\": true}]}",
+    "attempts": 1,
+    "seconds": 3.7,
+    "valid": true,
+    "collisions": 0,
+    "pass": true,
+    "first_try": true,
+    "feedback": ""
+  },
+  {
+    "instruction": "Slide the hand wheel 20 mm onto the top of the shaft",
+    "answer": "{\"name\": \"hand wheel on a shaft\", \"mates\": [{\"part\": \"p2\", \"port\": \"bore_bottom\", \"to\": \"p1\", \"to_port\": \"top_end\", \"offset\": -20}]}",
+    "attempts": 1,
+    "seconds": 1.7,
+    "valid": true,
+    "collisions": 0,
+    "pass": true,
+    "first_try": true,
+    "feedback": ""
+  },
+  {
+    "instruction": "Put the bearing on the bottom end of the shaft and the pulley on the top end",
+    "answer": "{\"name\": \"bearing and pulley on shaft ends\", \"mates\": [{\"part\": \"p2\", \"port\": \"bore_bottom\", \"to\": \"p1\", \"to_port\": \"top_end\", \"each\": true}, {\"part\": \"p3\", \"port\": \"bore_top\", \"to\": \"p1\", \"to_port\": \"top_end\", \"each\": true}]}",
+    "attempts": 3,
+    "seconds": 8.7,
+    "valid": false,
+    "collisions": 0,
+    "pass": false,
+    "first_try": false,
+    "feedback": "Your assembly has problems. Fix them and return the whole corrected JSON:\n- mate 1 (p2.bore_bottom to p1.top_end): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number\n- mate 2 (p3.bore_top to p1.top_end): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number"
+  },
+  {
+    "instruction": "Fasten the bracket with a bolt in each hole of its base",
+    "answer": "{\"name\": \"bracket bolted through the base\", \"mates\": [{\"part\": \"p2\", \"port\": \"under_head\", \"to\": \"p1\", \"to_port\": \"base_hole_1\", \"each\": true}]}",
+    "attempts": 2,
+    "seconds": 4.9,
+    "valid": true,
+    "collisions": 0,
+    "pass": true,
+    "first_try": false,
+    "feedback": ""
+  },
+  {
+    "instruction": "Stand the shaft in the flange's centre hole and fit the wheel on top of the shaft",
+    "answer": "{\"name\": \"shaft in flange's centre hole\", \"mates\": [{\"part\": \"p2\", \"port\": \"bottom_end\", \"to\": \"p1\", \"to_port\": \"bore_top\", \"each\": true}]}",
+    "attempts": 3,
+    "seconds": 5.3,
+    "valid": false,
+    "collisions": 0,
+    "pass": false,
+    "first_try": false,
+    "feedback": "Your assembly has problems. Fix them and return the whole corrected JSON:\n- mate 1 (p2.bottom_end to p1.bore_top): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number"
+  },
+  {
+    "instruction": "Put the washer under the head of the bolt and the nut below the washer",
+    "answer": "{\"name\": \"washer under bolt head and nut below washer\", \"mates\": [{\"part\": \"p2\", \"port\": \"under_head\", \"to\": \"p1\", \"to_port\": \"head\", \"each\": true}, {\"part\": \"p3\", \"port\": \"bore_bottom\", \"to\": \"p2\", \"to_port\": \"top\", \"each\": true}]}",
+    "attempts": 3,
+    "seconds": 8.5,
+    "valid": false,
+    "collisions": 0,
+    "pass": false,
+    "first_try": false,
+    "feedback": "Your assembly has problems. Fix them and return the whole corrected JSON:\n- mate 1 (p2.under_head to p1.head): p2 (washer) has no port \"under_head\". Its ports are: bore_top, bore_bottom, top, bottom, right, left, front, back.\n- mate 2 (p3.bore_bottom to p2.top): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number"
+  },
+  {
+    "instruction": "Stack the nut on top of the standoff",
+    "answer": "{\"name\": \"nut on a standoff\", \"mates\": [{\"part\": \"p2\", \"port\": \"bore_top\", \"to\": \"p1\", \"to_port\": \"top\", \"each\": true}]}",
+    "attempts": 3,
+    "seconds": 4.8,
+    "valid": false,
+    "collisions": 0,
+    "pass": false,
+    "first_try": false,
+    "feedback": "Your assembly has problems. Fix them and return the whole corrected JSON:\n- mate 1 (p2.bore_top to p1.top): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number"
+  },
+  {
+    "instruction": "The gear goes on the shaft, flush with its top end",
+    "answer": "{\"name\": \"gear on a shaft\", \"mates\": [{\"part\": \"p1\", \"port\": \"bore_top\", \"to\": \"p2\", \"to_port\": \"top_end\", \"each\": true}]}",
+    "attempts": 3,
+    "seconds": 4.9,
+    "valid": false,
+    "collisions": 0,
+    "pass": false,
+    "first_try": false,
+    "feedback": "Your assembly has problems. Fix them and return the whole corrected JSON:\n- mate 1 (p1.bore_top to p2.top_end): \"each\" needs a numbered to_port (like hole_1_top), so that there is one copy per number"
+  }
+]

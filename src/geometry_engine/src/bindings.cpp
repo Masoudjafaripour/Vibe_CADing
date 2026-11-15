@@ -8,6 +8,7 @@
 
 #include "vibecad/mesh.hpp"
 #include "vibecad/csg.hpp"
+#include "vibecad/assembly.hpp"
 #include "vibecad/mesh_ops.hpp"
 #include "vibecad/printability.hpp"
 
@@ -209,6 +210,47 @@ PYBIND11_MODULE(vibecad_geom, m) {
         "JSON part spec -> validated, meshed, printability-checked part (with feedback for an LLM).");
 
     m.def("spec_guide", &csg::spec_guide, "The part-spec language, as text for an LLM prompt.");
+
+    m.def(
+        "csg_assemble",
+        [](const std::string& parts, const std::string& mates, int resolution, size_t target_triangles) {
+            csg::AssemblyOptions o;
+            o.resolution = resolution, o.target_triangles = target_triangles;
+            csg::AssemblyResult r;
+            {
+                py::gil_scoped_release release;
+                r = csg::assemble(parts, mates, o);
+            }
+            py::object v = py::none(), t = py::none(), c = py::none();
+            if (!r.mesh.triangles.empty()) {
+                py::tuple vt = from_mesh(r.mesh);
+                v = vt[0], t = vt[1];
+                FloatArray ca({py::ssize_t(r.colors.size()), py::ssize_t(3)});
+                std::memcpy(ca.mutable_data(), r.colors.data(), ca.nbytes());
+                c = ca;
+            }
+            py::list placed, overlaps;
+            for (const auto& p : r.placed)
+                placed.append(py::dict("id"_a = p.id, "of"_a = p.of, "name"_a = p.name, "rotation"_a = p.rotation,
+                                       "translation"_a = p.translation));
+            for (const auto& o2 : r.overlaps)
+                overlaps.append(py::dict("a"_a = o2.a, "b"_a = o2.b, "volume_mm3"_a = o2.volume_mm3, "where"_a = o2.where));
+            return py::dict("ok"_a = r.ok, "name"_a = r.name, "errors"_a = r.errors, "notes"_a = r.notes,
+                            "feedback"_a = r.feedback, "placed"_a = placed, "overlaps"_a = overlaps,
+                            "vertices"_a = v, "triangles"_a = t, "colors"_a = c, "ms"_a = r.ms);
+        },
+        "parts"_a, "mates"_a, "resolution"_a = 80, "target_triangles"_a = 20000,
+        "Parts ({id: spec JSON}) + mates JSON -> placed parts, collision check, merged mesh, feedback for an LLM.");
+    m.def("describe_parts", &csg::describe_parts, "Parts ({id: spec JSON}) as text for an LLM prompt: name, size, ports.");
+    m.def("assembly_guide", &csg::assembly_guide, "How to write mates, as text for an LLM prompt.");
+    m.def(
+        "part_ports",
+        [](const std::string& spec) {
+            std::vector<std::string> names;
+            for (const auto& p : csg::part_ports(csg::scene_of(spec))) names.push_back(p.name);
+            return names;
+        },
+        "spec"_a, "Port names of a part (declared by its family plus the bounding-box ones).");
 
     m.def(
         "write_stl",
