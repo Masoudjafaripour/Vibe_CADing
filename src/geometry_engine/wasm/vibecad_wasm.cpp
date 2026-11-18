@@ -6,6 +6,7 @@
 
 #include "vibecad/csg.hpp"
 #include "vibecad/assembly.hpp"
+#include "vibecad/families.hpp"
 
 using namespace emscripten;
 using namespace vibecad;
@@ -108,6 +109,23 @@ val part_ports(const std::string& spec) {
     return strings(names);
 }
 
+// v2 prompts: the families a request is about, and the guide for just those.
+val select_families(const std::string& text, int k, const std::string& always) {
+    return strings(csg::select_families(text, k, always));
+}
+std::string families_guide(const std::string& comma_separated) {
+    std::vector<std::string> names;
+    size_t start = 0;
+    while (start <= comma_separated.size()) {
+        const size_t end = comma_separated.find(',', start);
+        const std::string n = comma_separated.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        if (!n.empty()) names.push_back(n);
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return csg::families_guide(names);
+}
+
 val assembly_stl() {
     const std::vector<char> bytes = csg::stl_bytes(last_assembly.mesh);
     return copy_array("Uint8Array", reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
@@ -120,6 +138,8 @@ EMSCRIPTEN_BINDINGS(vibecad) {
     function("assemblyStl", &assembly_stl);
     function("describeParts", &csg::describe_parts);
     function("partPorts", &part_ports);
+    function("selectFamilies", &select_families);
+    function("familiesGuide", &families_guide);
     function("assemblyGuide", &csg::assembly_guide);
     function("build", &build);
     function("stl", &stl);

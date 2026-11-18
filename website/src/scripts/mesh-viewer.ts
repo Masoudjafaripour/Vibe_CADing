@@ -33,8 +33,12 @@ export function mountMeshViewer(canvas: HTMLCanvasElement) {
   resize();
   let visible = true;
   new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(canvas);
+  // The v2 (fast) pipeline announces when its model is using the GPU; drawing pauses meanwhile,
+  // so the model gets the GPU to itself (v1 never sends this event).
+  let gpuBusy = false;
+  window.addEventListener("vibecad-gpu-busy", (e) => (gpuBusy = (e as CustomEvent<boolean>).detail));
   renderer.setAnimationLoop(() => {
-    if (!visible) return;
+    if (!visible || gpuBusy) return;
     controls.update();
     renderer.render(scene, camera);
   });

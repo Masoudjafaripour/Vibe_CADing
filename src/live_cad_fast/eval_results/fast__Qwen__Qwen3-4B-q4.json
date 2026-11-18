@@ -1,0 +1,327 @@
+{
+  "summary": {
+    "model": "Qwen/Qwen3-4B-q4",
+    "suggestions": "12/12",
+    "first_try": "12/12",
+    "held_out": "10/12",
+    "edits": "8/8",
+    "prompt_tokens_v1": 2864,
+    "prompt_tokens_v2": 828
+  },
+  "suggestions": [
+    {
+      "prompt": "A pipe flange with six bolt holes",
+      "families": [
+        "flange",
+        "bolt",
+        "knurled_knob",
+        "star_knob",
+        "washer",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"round pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 6}}",
+      "attempts": 1,
+      "seconds": 1.8,
+      "verdict": "printable",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A V-belt pulley with a center bore",
+      "families": [
+        "pulley",
+        "flange",
+        "hand_wheel",
+        "spur_gear",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 60, \"width\": 18, \"groove_depth\": 6, \"bore\": 30, \"hub_diameter\": 0, \"hub_height\": 8}}",
+      "attempts": 1,
+      "seconds": 2.8,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A knurled thumb knob with 12 grip ridges",
+      "families": [
+        "knurled_knob",
+        "star_knob",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"knurled_knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 12}}",
+      "attempts": 1,
+      "seconds": 1.3,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A wall hook with two screw holes",
+      "families": [
+        "wall_hook",
+        "bolt",
+        "standoff",
+        "l_bracket",
+        "washer"
+      ],
+      "spec": "{\"name\": \"wall hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 2}}",
+      "attempts": 1,
+      "seconds": 1.0,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A desk cable organizer with three round slots",
+      "families": [
+        "cable_organizer",
+        "flange",
+        "knurled_knob",
+        "hand_wheel",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"cable_organizer\", \"family\": \"cable_organizer\", \"params\": {\"slots\": 3}}",
+      "attempts": 1,
+      "seconds": 1.2,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A hand wheel with five spokes",
+      "families": [
+        "hand_wheel",
+        "pulley",
+        "knurled_knob",
+        "spur_gear",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"hand_wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5}}",
+      "attempts": 1,
+      "seconds": 1.0,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "An M12 hex nut",
+      "families": [
+        "hex_nut",
+        "bolt",
+        "star_knob",
+        "standoff",
+        "washer"
+      ],
+      "spec": "{\"name\": \"M12 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 12}}",
+      "attempts": 1,
+      "seconds": 1.2,
+      "verdict": "printable",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A five-lobed star knob with a hex socket",
+      "families": [
+        "star_knob",
+        "knurled_knob",
+        "hex_nut",
+        "bolt",
+        "washer",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"star_knob\", \"family\": \"star_knob\", \"params\": {\"lobes\": 5, \"socket\": 10}}",
+      "attempts": 1,
+      "seconds": 1.4,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A spur gear with 24 teeth and an 8 mm bore",
+      "families": [
+        "spur_gear",
+        "flange",
+        "pulley",
+        "hand_wheel",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"spur_gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 8, \"bore\": 8}}",
+      "attempts": 1,
+      "seconds": 2.0,
+      "verdict": "printable",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "An L bracket with three screw holes per leg",
+      "families": [
+        "l_bracket",
+        "bolt",
+        "wall_hook",
+        "standoff",
+        "washer"
+      ],
+      "spec": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 3}}",
+      "attempts": 1,
+      "seconds": 1.0,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "An M8 x 30 hex bolt",
+      "families": [
+        "bolt",
+        "hex_nut",
+        "flange",
+        "star_knob",
+        "washer",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"M8 x 30 hex bolt\", \"family\": \"bolt\", \"params\": {\"thread\": 8, \"length\": 30, \"thread_length\": 30}}",
+      "attempts": 1,
+      "seconds": 1.8,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    },
+    {
+      "prompt": "A 608 skate bearing",
+      "families": [
+        "bearing",
+        "washer",
+        "bolt",
+        "standoff"
+      ],
+      "spec": "{\"name\": \"608 skate bearing\", \"family\": \"bearing\", \"params\": {\"bore\": 8, \"outer\": 22, \"width\": 7}}",
+      "attempts": 1,
+      "seconds": 1.6,
+      "verdict": "printable with supports",
+      "adheres": true,
+      "first_try": true
+    }
+  ],
+  "held_out": [
+    {
+      "prompt": "Flange, 100 mm across, eight bolt holes, 40 mm bore",
+      "spec": "{\"name\": \"flange\", \"family\": \"flange\", \"params\": {\"count\": 8, \"hole_circle\": 100, \"hub_diameter\": 0, \"hub_height\": 10}}",
+      "pass": false
+    },
+    {
+      "prompt": "A gear with 32 teeth",
+      "spec": "{\"name\": \"spur_gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 32}}",
+      "pass": true
+    },
+    {
+      "prompt": "M8 nut",
+      "spec": "{\"name\": \"M8 nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 8}}",
+      "pass": true
+    },
+    {
+      "prompt": "A seven-lobed knob for a bolt head",
+      "spec": "{\"name\": \"seven-lobed knob\", \"family\": \"star_knob\", \"params\": {\"lobes\": 7}}",
+      "pass": true
+    },
+    {
+      "prompt": "Coat hook, 3 screw holes",
+      "spec": "{\"name\": \"coat hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3}}",
+      "pass": true
+    },
+    {
+      "prompt": "Holder that keeps 5 charging cables on my desk",
+      "spec": "{\"name\": \"cable_organizer\", \"family\": \"cable_organizer\", \"params\": {\"slots\": 5}}",
+      "pass": true
+    },
+    {
+      "prompt": "A grippy round knob, 40 mm wide, 20 ridges",
+      "spec": "{\"name\": \"grippy knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 20, \"diameter\": 40}}",
+      "pass": true
+    },
+    {
+      "prompt": "Valve wheel, 3 spokes, 150 mm",
+      "spec": "{\"name\": \"spoked valve wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 3, \"diameter\": 150}}",
+      "pass": true
+    },
+    {
+      "prompt": "A 12 mm bore pulley, 80 mm diameter",
+      "spec": "{\"name\": \"V-belt pulley\", \"family\": \"pulley\", \"params\": {\"diameter\": 80, \"bore\": 12}}",
+      "pass": true
+    },
+    {
+      "prompt": "Corner bracket, 60 mm legs, one hole each",
+      "spec": "{\"name\": \"l_bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 1, \"base_length\": 60}}",
+      "pass": false
+    },
+    {
+      "prompt": "M6 screw, 20 long",
+      "spec": "{\"name\": \"M6 screw\", \"family\": \"bolt\", \"params\": {\"thread\": 6, \"length\": 20}}",
+      "pass": true
+    },
+    {
+      "prompt": "Axle 12 mm thick and 100 mm long with a flat",
+      "spec": "{\"name\": \"axle\", \"family\": \"shaft\", \"params\": {\"diameter\": 12, \"length\": 100, \"flat\": 5}}",
+      "pass": true
+    }
+  ],
+  "edits": [
+    {
+      "prompt": "A pipe flange with six bolt holes",
+      "edit": "Make it eight holes",
+      "spec": "{\"name\": \"pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 8}}",
+      "pass": true
+    },
+    {
+      "prompt": "A pipe flange with six bolt holes",
+      "edit": "Remove the centre hole",
+      "spec": "{\"name\": \"pipe flange\", \"family\": \"flange\", \"params\": {\"count\": 6, \"bore\": 0}}",
+      "pass": true
+    },
+    {
+      "prompt": "An M12 hex nut",
+      "edit": "Make it M16",
+      "spec": "{\"name\": \"M16 hex nut\", \"family\": \"hex_nut\", \"params\": {\"thread\": 16}}",
+      "pass": true
+    },
+    {
+      "prompt": "A spur gear with 24 teeth and an 8 mm bore",
+      "edit": "Make it twice as thick",
+      "spec": "{\"name\": \"spur gear\", \"family\": \"spur_gear\", \"params\": {\"teeth\": 24, \"module\": 2, \"thickness\": 16, \"bore\": 8}}",
+      "pass": true
+    },
+    {
+      "prompt": "A wall hook with two screw holes",
+      "edit": "Add one more screw hole",
+      "spec": "{\"name\": \"wall hook\", \"family\": \"wall_hook\", \"params\": {\"holes\": 3}}",
+      "pass": true
+    },
+    {
+      "prompt": "A knurled thumb knob with 12 grip ridges",
+      "edit": "Remove the hole underneath",
+      "spec": "{\"name\": \"knurled thumb knob\", \"family\": \"knurled_knob\", \"params\": {\"ridges\": 12, \"bore\": 0}}",
+      "pass": true
+    },
+    {
+      "prompt": "A hand wheel with five spokes",
+      "edit": "Make it bigger, 150 mm across",
+      "spec": "{\"name\": \"hand_wheel\", \"family\": \"hand_wheel\", \"params\": {\"spokes\": 5, \"diameter\": 150, \"rim_thickness\": 10, \"hub_diameter\": 24, \"hub_height\": 20, \"bore\": 8}}",
+      "pass": true
+    },
+    {
+      "prompt": "An L bracket with three screw holes per leg",
+      "edit": "Change it to one hole per leg",
+      "spec": "{\"name\": \"L bracket\", \"family\": \"l_bracket\", \"params\": {\"holes\": 1, \"width\": 30, \"base_length\": 50, \"upright_length\": 40, \"thickness\": 4}}",
+      "pass": true
+    }
+  ]
+}

@@ -22,7 +22,15 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
       <!-- controls -->
       <div class="frame flex min-w-0 flex-col bg-panel/80 p-4 sm:p-5">
         <span class="corners"></span>
-        <label for="live-prompt" class="label">Describe a part</label>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label for="live-prompt" class="label">Describe a part</label>
+          <div role="group" aria-label="Pipeline version" class="flex font-mono text-[10px] tracking-[0.1em] uppercase">
+            <button id="mode-v1" type="button" aria-pressed="true" title="v1: the full prompt (every part type and free-form parts)"
+              class="border border-line-strong px-2 py-1 text-muted aria-pressed:bg-ink aria-pressed:text-bg">Standard</button>
+            <button id="mode-v2" type="button" aria-pressed="false" title="v2: a short prompt with only the matching part types, a smaller GPU memory budget and a model picked for your device"
+              class="border border-l-0 border-line-strong px-2 py-1 text-muted aria-pressed:bg-signal aria-pressed:text-white">Fast · beta</button>
+          </div>
+        </div>
         <textarea id="live-prompt" rows="2" maxlength="200" class="mt-2 w-full resize-none border border-line-strong bg-bg p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-signal">{prompt.suggestions[0]}</textarea>
         <div class="mt-3 flex flex-wrap gap-1.5" id="live-suggest">
           {prompt.suggestions.map((s) => (
@@ -183,6 +191,11 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     generateAssembly, generatePart, loadGeometryEngine, loadModel, modelLoaded, unloadModel, webgpuStatus,
     type AssemblyAttempt, type Attempt, type BuildResult, type PartEdit, type PartSpecs,
   } from "../scripts/live-cad";
+  import {
+    fastModelLoaded, generatePartFast, loadFastModel, stlFromWorker, unloadFastModel, warmUp, type FastAttempt,
+  } from "../scripts/fast/live-cad-fast";
+  import { suggestModel } from "../scripts/fast/device";
+  import models from "../../../src/live_cad/web_models.json";
   import { addToLibrary, clearLibrary, exportLibrary, importLibrary, loadLibrary, removeFromLibrary, type LibraryItem } from "../scripts/library";
 
   type Viewer = { show(p: Float32Array, i: Uint32Array, c: Float32Array): void };
@@ -216,7 +229,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     editBtn.disabled = busy || !gpuOk || !currentPart;
     asmEdit.disabled = busy || !gpuOk || !currentAssembly;
     replayBtn.disabled = asmReplay.disabled = busy;
-    unloadBtn.disabled = busy || !modelLoaded();
+    unloadBtn.disabled = busy || !(modelLoaded() || fastModelLoaded());
   }
 
   for (const [box, list] of [[promptBox, "#live-suggest"], [asmPrompt, "#asm-suggest"]] as const)
@@ -288,6 +301,57 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     renderLibrary();
   }
 
+  // ---- v1 / v2 switch (v2 code: ../scripts/fast/, design: src/live_cad_fast/README.md) ----
+  let mode: "v1" | "v2" = (() => { try { return localStorage.getItem("vibecad-mode") === "v2" ? "v2" : "v1"; } catch { return "v1"; } })();
+  let lastBuildInWorker = false;
+  async function setMode(m: "v1" | "v2") {
+    if (busy) return;
+    mode = m;
+    try { localStorage.setItem("vibecad-mode", m); } catch { /* not kept */ }
+    button("mode-v1").setAttribute("aria-pressed", String(m === "v1"));
+    button("mode-v2").setAttribute("aria-pressed", String(m === "v2"));
+    // one model in GPU memory at a time
+    if (m === "v2" && modelLoaded()) await unloadModel();
+    if (m === "v1" && fastModelLoaded()) await unloadFastModel();
+    if (m === "v2") {
+      const pick = await suggestModel(models.models[0].id, models.models[models.models.length - 1].id);
+      modelSel.value = pick.id;
+      status(`Fast mode (beta): a short prompt with only the matching part types, a smaller GPU memory budget, and ` +
+             `${modelSel.selectedOptions[0].textContent} suggested for this device (${pick.reason}).`);
+    } else {
+      status("Standard mode: the full prompt, every part type and free-form parts.");
+    }
+    setButtons();
+  }
+  button("mode-v1").addEventListener("click", () => setMode("v1"));
+  button("mode-v2").addEventListener("click", () => setMode("v2"));
+  if (mode === "v2") setMode("v2");
+  promptBox.addEventListener("focus", async () => {  // v2: warm up while the visitor types (cached models only)
+    if (mode !== "v2" || busy || !gpuOk) return;
+    const opt = modelSel.selectedOptions[0];
+    if (await warmUp(!gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value, (f) => progress(f))) setButtons();
+  });
+
+  async function runPartFast(request: string, target: (PartEdit & { name: string }) | null) {
+    const opt = modelSel.selectedOptions[0];
+    status(`Loading ${opt.textContent}…`);
+    await loadFastModel(!gpuF16 && opt.dataset.f32 ? opt.dataset.f32 : opt.value, (f, t) => { progress(f); status(t.length > 110 ? t.slice(0, 110) + "…" : t); });
+    progress(1);
+    const t0 = performance.now();
+    const attempts = await generatePartFast(canvas.dataset.base!, request, {
+      onAttempt: (n) => status(n === 1 ? (target ? `The model is changing ${target.name}…` : "The model is writing the spec…")
+                                       : `Repair ${n - 1}: the model is fixing the spec…`),
+      onToken: (t) => ($("live-spec").textContent = t),
+      onResult: (a, n) => logAttempt(a, n),
+    }, target ?? undefined);
+    lastBuildInWorker = true;
+    const last = attempts[attempts.length - 1] as FastAttempt;
+    keepPart(target ? `${target.prompt}; then: ${request}` : request, last.spec, last.result);
+    const u = attempts[0].usage;
+    status(`Done (fast mode). ${u ? `${u.prompt_tokens} prompt tokens, first token after ${(u.extra?.time_to_first_token_s ?? 0).toFixed(2)} s, ` : ""}` +
+           `${((performance.now() - t0) / 1000).toFixed(1)} s in all · part types offered: ${last.families.slice(0, 4).join(", ")}.`);
+  }
+
   async function runPart(edit: boolean) {
     if (busy) return;
     const request = promptBox.value.trim();
@@ -295,18 +359,32 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     const target = edit ? currentPart : null;
     busy = true; setButtons();
     $("live-log").replaceChildren(); stlBtn.disabled = true; progress(0);
+    if (mode === "v2") {
+      try {
+        await runPartFast(request, target);
+      } catch (err) {
+        status(`Error: ${err instanceof Error ? err.message : err}`);
+      } finally {
+        busy = false; setButtons(); touchModel();
+      }
+      return;
+    }
+    let firstToken = 0, started = 0;
     try {
       const eng = await engine();
       await loadSelectedModel(status);
+      started = performance.now();
       const attempts = await generatePart(eng, request, {
         onAttempt: (n) => status(n === 1 ? (target ? `The model is changing ${target.name}…` : "The model is writing the spec…")
                                          : `Repair ${n - 1}: the model is fixing the spec…`),
-        onToken: (t) => ($("live-spec").textContent = t),
+        onToken: (t) => { firstToken ||= performance.now(); $("live-spec").textContent = t; },
         onResult: (a, n) => logAttempt(a, n),
       }, 112, target ?? undefined);
       const last = attempts[attempts.length - 1];
       keepPart(target ? `${target.prompt}; then: ${request}` : request, last.spec, last.result);
-      status("Done. Drag to orbit, download the STL, or type a change and press Change current part.");
+      lastBuildInWorker = false;
+      status(`Done. First token after ${((firstToken - started) / 1000).toFixed(2)} s, ${((performance.now() - started) / 1000).toFixed(1)} s in all. ` +
+             "Drag to orbit, download the STL, or type a change and press Change current part.");
     } catch (err) {
       status(`Error: ${err instanceof Error ? err.message : err}`);
     } finally {
@@ -325,6 +403,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     const eng = await engine();
     const t0 = performance.now();
     const result = eng.build(answers[key], 112, 1.0, 60000);
+    lastBuildInWorker = false;
     logAttempt({ spec: answers[key], result, seconds: 0 }, 1, ` <span class="text-faint">· recorded answer from ${recorded.model}, built live in ${(performance.now() - t0).toFixed(0)} ms</span>`);
     keepPart(key, answers[key], result);
     setButtons();
@@ -339,7 +418,8 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
-  stlBtn.addEventListener("click", async () => download((await engine()).stl(), $("live-name").textContent ?? "part"));
+  stlBtn.addEventListener("click", async () =>
+    download(lastBuildInWorker ? await stlFromWorker(canvas.dataset.base!) : (await engine()).stl(), $("live-name").textContent ?? "part"));
 
   // ---- GPU memory: free on request, or after a few idle minutes ----
   const IDLE_MS = 3 * 60_000;
@@ -347,12 +427,13 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
   function touchModel() {
     setButtons();
     clearTimeout(idleTimer);
-    if (modelLoaded()) idleTimer = window.setTimeout(() => freeModel("GPU memory freed after 3 idle minutes."), IDLE_MS);
+    if (modelLoaded() || fastModelLoaded()) idleTimer = window.setTimeout(() => freeModel("GPU memory freed after 3 idle minutes."), IDLE_MS);
   }
   async function freeModel(message: string) {
-    if (busy || !modelLoaded()) return;
+    if (busy || !(modelLoaded() || fastModelLoaded())) return;
     clearTimeout(idleTimer);
     await unloadModel();
+    await unloadFastModel();
     setButtons();
     status(message + " The next Generate reloads the model from the browser cache (no download).");
   }
@@ -509,6 +590,7 @@ const btn = "border border-line-strong px-4 py-2 font-mono text-[11px] tracking-
       $("live-log").replaceChildren();
       promptBox.value = item.prompt;
       const result = eng.build(item.spec, 112, 1.0, 60000);
+      lastBuildInWorker = false;
       logAttempt({ spec: item.spec, result, seconds: 0 }, 1, ` <span class="text-faint">· from your library (${ago(item.created)})</span>`);
       currentPart = { prompt: item.prompt, spec: item.spec, name: item.name };
       addPart(item.spec, item.name);

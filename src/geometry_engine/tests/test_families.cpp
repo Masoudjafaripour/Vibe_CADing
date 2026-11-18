@@ -1,4 +1,5 @@
 // Every part family builds a closed, printable part with the topology it should have.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -61,6 +62,21 @@ int main() {
     r = build(R"({"name": "x", "family": "custom", "parts": [{"shape": "sphere", "size": [20], "at": [0, 10, 0]}]})");
     check(r.ok && r.expanded.empty(), "custom family uses the free-form parts");
     check(!make("spur_gear").expanded.empty(), "the expanded parts are returned for display");
+
+    // v2 prompts: the request's family is among the few sent to the model.
+    const struct { const char* request; const char* family; } picks[] = {
+        {"A gear with 32 teeth", "spur_gear"}, {"M8 nut", "hex_nut"}, {"Coat hook, 3 screw holes", "wall_hook"},
+        {"Holder that keeps 5 charging cables on my desk", "cable_organizer"}, {"Valve wheel, 3 spokes", "hand_wheel"},
+        {"A 608 skate bearing", "bearing"}, {"M6 screw, 20 long", "bolt"}, {"Corner bracket with one hole each", "l_bracket"}};
+    for (const auto& pk : picks) {
+        const auto sel = select_families(pk.request, 4);
+        check(sel.size() <= 4 && std::find(sel.begin(), sel.end(), pk.family) != sel.end(),
+              std::string("select_families(\"") + pk.request + "\") includes " + pk.family);
+    }
+    check(select_families("something", 4).size() == families().size(), "no matching word: every family is offered");
+    check(select_families("make it bigger", 4, "flange").front() == "flange", "an edited part's family is always offered");
+    check(families_guide({"washer"}).find("- washer:") != std::string::npos && families_guide({"washer"}).find("- flange:") == std::string::npos,
+          "families_guide lists only the given families");
 
     std::printf("%s (%d failure%s)\n", failures ? "FAILED" : "all passed", failures, failures == 1 ? "" : "s");
     return failures ? 1 : 0;

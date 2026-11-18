@@ -1,6 +1,7 @@
 #include "vibecad/families.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -436,6 +437,103 @@ const std::vector<FamilyInfo>& families() {
         return v;
     }();
     return info;
+}
+
+namespace {
+
+std::vector<std::string> words_of(const std::string& text) {
+    static const std::vector<std::string> stop = {"a", "an", "the", "with", "and", "for", "of", "to", "in", "on", "my",
+                                                  "mm", "it", "its", "that", "this", "one", "some", "make", "me", "please",
+                                                  "each", "per", "or", "by", "at", "as", "from", "into"};
+    std::vector<std::string> out;
+    std::string cur;
+    auto flush = [&] {
+        if (cur.size() > 3 && cur.back() == 's' && cur[cur.size() - 2] != 's') cur.pop_back();  // holes -> hole
+        if (cur.size() >= 2 && std::find(stop.begin(), stop.end(), cur) == stop.end()) out.push_back(cur);
+        cur.clear();
+    };
+    for (char c : text) {
+        const char l = char(std::tolower(static_cast<unsigned char>(c)));
+        if (l >= 'a' && l <= 'z') cur += l;
+        else flush();
+    }
+    flush();
+    return out;
+}
+
+bool has_m_size(const std::string& text) {  // "M8", "m12 x 30"
+    for (size_t i = 0; i + 1 < text.size(); ++i)
+        if ((text[i] == 'M' || text[i] == 'm') && std::isdigit(static_cast<unsigned char>(text[i + 1])) &&
+            (i == 0 || !std::isalpha(static_cast<unsigned char>(text[i - 1]))))
+            return true;
+    return false;
+}
+
+}  // namespace
+
+std::vector<FamilyScore> rank_families(const std::string& request) {
+    const std::vector<std::string> query = words_of(request);
+    const bool m_size = has_m_size(request);
+    std::vector<FamilyScore> out;
+    for (const auto& f : table()) {
+        // weight of each word in this family's vocabulary: name and synonyms 3, description 1, params 0.5
+        std::map<std::string, float> vocab;
+        auto add = [&](const std::string& text, float w) {
+            for (const auto& word : words_of(text)) vocab[word] = std::max(vocab[word], w);
+        };
+        std::string name = f.info.name;
+        std::replace(name.begin(), name.end(), '_', ' ');
+        add(name, 3);
+        const size_t also = f.info.doc.find("Also:");
+        add(f.info.doc.substr(0, also), 1);
+        if (also != std::string::npos) add(f.info.doc.substr(also + 5), 3);
+        for (const auto& p : f.info.params) {
+            std::string pn = p.name;
+            std::replace(pn.begin(), pn.end(), '_', ' ');
+            add(pn, 0.5f);
+        }
+        float score = 0;
+        for (const auto& q : query)
+            if (auto it = vocab.find(q); it != vocab.end()) score += it->second;
+        if (m_size && std::any_of(f.info.params.begin(), f.info.params.end(), [](const FamilyParam& p) { return p.name == "thread"; }))
+            score += 2;
+        out.push_back({f.info.name, score});
+    }
+    std::stable_sort(out.begin(), out.end(), [](const FamilyScore& a, const FamilyScore& b) { return a.score > b.score; });
+    return out;
+}
+
+std::vector<std::string> select_families(const std::string& request, int k, const std::string& always) {
+    const auto ranked = rank_families(request);
+    std::vector<std::string> out;
+    if (ranked.empty() || ranked[0].score <= 0) {
+        for (const auto& r : ranked) out.push_back(r.name);  // nothing matched: offer them all
+        return out;
+    }
+    if (!always.empty() && std::any_of(ranked.begin(), ranked.end(), [&](const FamilyScore& r) { return r.name == always; }))
+        out.push_back(always);
+    for (const auto& r : ranked)
+        if (int(out.size()) < k && r.score > 0 && r.name != always) out.push_back(r.name);
+    return out;
+}
+
+std::string families_guide(const std::vector<std::string>& names) {
+    std::string g =
+        "Answer with JSON: {\"family\": <family>, \"params\": {<param>: number, ...}}\n"
+        "Leave out params you have no value for (defaults are sensible). Units are millimetres.\n\n";
+    for (const auto& n : names)
+        for (const auto& f : families()) {
+            if (f.name != n) continue;
+            g += "- " + f.name + ": " + f.doc + "\n  params: ";
+            for (size_t i = 0; i < f.params.size(); ++i) {
+                const auto& p = f.params[i];
+                char buf[200];
+                std::snprintf(buf, sizeof buf, "%s%s (%s, default %g)", i ? "; " : "", p.name.c_str(), p.doc.c_str(), p.value);
+                g += buf;
+            }
+            g += "\n";
+        }
+    return g;
 }
 
 std::string expand_family(const json::Value& root, std::vector<std::string>& notes) {

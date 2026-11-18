@@ -9,6 +9,7 @@
 #include "vibecad/mesh.hpp"
 #include "vibecad/csg.hpp"
 #include "vibecad/assembly.hpp"
+#include "vibecad/families.hpp"
 #include "vibecad/mesh_ops.hpp"
 #include "vibecad/printability.hpp"
 
@@ -241,6 +242,17 @@ PYBIND11_MODULE(vibecad_geom, m) {
         },
         "parts"_a, "mates"_a, "resolution"_a = 80, "target_triangles"_a = 20000,
         "Parts ({id: spec JSON}) + mates JSON -> placed parts, collision check, merged mesh, feedback for an LLM.");
+    m.def(
+        "rank_families",
+        [](const std::string& text) {
+            std::vector<std::pair<std::string, float>> out;
+            for (const auto& r : csg::rank_families(text)) out.push_back({r.name, r.score});
+            return out;
+        },
+        "text"_a, "Every part family with its keyword score for a request, best first (v2 prompts).");
+    m.def("select_families", &csg::select_families, "text"_a, "k"_a = 4, "always"_a = "",
+          "Up to k family names for a request (all of them when nothing matches).");
+    m.def("families_guide", &csg::families_guide, "names"_a, "Prompt text for just these families.");
     m.def("describe_parts", &csg::describe_parts, "Parts ({id: spec JSON}) as text for an LLM prompt: name, size, ports.");
     m.def("assembly_guide", &csg::assembly_guide, "How to write mates, as text for an LLM prompt.");
     m.def(

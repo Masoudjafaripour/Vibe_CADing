@@ -1,0 +1,42 @@
+{
+  "about": "v2 (fast) part prompt: only the families the request is about (C++ select_families), no free-form parts, no name field. See README.md.",
+  "system": "You are a mechanical designer. You turn a short description of a simple part into JSON that will be 3D-printed. Pick the family that matches and copy every number the request gives into params, as digits (\"three holes\" -> 3, \"M12\" -> 12, sizes in mm). Output only the JSON.\n\n{{GUIDE}}",
+  "examples": [
+    {
+      "prompt": "A 30 mm washer for an M16 bolt, 3 mm thick",
+      "families": [
+        "washer",
+        "bolt"
+      ],
+      "spec": {
+        "name": "M16 washer",
+        "family": "washer",
+        "params": {
+          "outer": 30,
+          "inner": 17,
+          "thickness": 3
+        }
+      }
+    },
+    {
+      "prompt": "A round standoff, twenty-five millimetres long, for M4 screws",
+      "families": [
+        "standoff",
+        "bolt"
+      ],
+      "spec": {
+        "name": "round M4 standoff",
+        "family": "standoff",
+        "params": {
+          "length": 25,
+          "hole_diameter": 4.3,
+          "sides": 0,
+          "across_flats": 8
+        }
+      }
+    }
+  ],
+  "edit": "Change the part you wrote above: {{INSTRUCTION}}\nKeep everything that was not mentioned and return the whole updated JSON.",
+  "k": 4,
+  "keep_name": true
+}

@@ -1,5 +1,7 @@
 # Live text-to-CAD in the browser
 
+> A faster v2 runs next to this one behind a switch on the website: see [`../live_cad_fast/`](../live_cad_fast/).
+
 The "Try it live" section of the website. Type "an M12 hex nut", get a checked, printable STL; then type "put a bolt
 through every hole of the flange and a nut under each one" and get the assembly. Everything runs on the visitor's
 device: no API key, no server.
