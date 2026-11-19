@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>wllama bench</title>
+<script type="module">
+import { Wllama } from "./node_modules/@wllama/wllama/esm/index.js";
+const q = new URLSearchParams(location.search);
+const cases = await (await fetch("cases.json")).json();
+const w = new Wllama({ default: "./node_modules/@wllama/wllama/esm/wasm/wllama.wasm" });
+const t0 = performance.now();
+await w.loadModelFromUrl(location.origin + "/models/" + q.get("model"), { n_ctx: 4096, n_threads: Number(q.get("threads") || 8) });
+const load_s = (performance.now() - t0) / 1000;
+const out = { model: q.get("model"), threads: Number(q.get("threads") || 8), load_s, multithread: w.isMultithread?.() ?? null, runs: {} };
+for (const name of (q.get("cases") || "v2,v1").split(",")) {
+  const c = cases[name];
+  const t1 = performance.now();
+  const res = await w.createChatCompletion({ messages: c.messages, max_tokens: 120, temperature: 0, cache_prompt: false,
+    response_format: { type: "json_schema", json_schema: { name: "spec", schema: c.schema } }, chat_template_kwargs: { enable_thinking: false } });
+  out.runs[name] = { prompt_tokens: c.tokens, total_s: (performance.now() - t1) / 1000, text: res.choices[0].message.content, timings: res.timings };
+}
+window.__result = out;
+</script>

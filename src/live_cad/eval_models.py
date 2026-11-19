@@ -24,6 +24,7 @@ with open(os.path.join(HERE, "prompt.json")) as f:
 SYSTEM = PROMPT["system"].replace("{{SPEC_GUIDE}}", g.spec_guide())
 MAX_REPAIRS = 2
 Q4 = os.environ.get("EVAL_Q4") == "1"  # simulate the browser's 4-bit weights
+Q3 = os.environ.get("EVAL_Q3") == "1"  # simulate MLC's q3f16_1 (3-bit, groups of 40)
 MAX_TOKENS = 500  # WebLLM's builds have a 4096-token context; the prompt takes ~2900
 
 
@@ -119,14 +120,19 @@ def held_out_pass(spec, family, want):
 
 
 @torch.no_grad()
-def fake_q4f16_1(model, group=32):
-    """Round weights the way WebLLM's q4f16_1 builds store them: 4-bit symmetric integers in
-    groups of 32 along the input dimension, one fp16 scale per group (linear layers and embeddings)."""
+def fake_q4f16_1(model, group=32, bits=4):
+    """Round weights the way WebLLM's MLC group quantization stores them: symmetric integers in
+    [-(2^(bits-1) - 1), 2^(bits-1) - 1] in groups along the input dimension, one fp16 scale per group
+    (linear layers and embeddings). q4f16_1: bits 4, groups of 32. q3f16_1: bits 3, groups of 40."""
+    m = 2 ** (bits - 1) - 1
     for mod in model.modules():
-        if isinstance(mod, (torch.nn.Linear, torch.nn.Embedding)) and mod.weight.shape[-1] % group == 0:
-            w = mod.weight.data.float().reshape(-1, group)
-            scale = (w.abs().amax(1, keepdim=True) / 7).half().float().clamp_min(1e-8)
-            mod.weight.data = ((w / scale).round().clamp(-7, 7) * scale).reshape(mod.weight.shape).to(mod.weight.dtype)
+        if isinstance(mod, (torch.nn.Linear, torch.nn.Embedding)):
+            rows, k = mod.weight.shape
+            pad = (-k) % group  # the last group of a row is zero-padded, as MLC does
+            w = torch.nn.functional.pad(mod.weight.data.float(), (0, pad)).reshape(-1, group)
+            scale = (w.abs().amax(1, keepdim=True) / m).half().float().clamp_min(1e-8)
+            q = ((w / scale).round().clamp(-m, m) * scale).reshape(rows, k + pad)[:, :k]
+            mod.weight.data = q.to(mod.weight.dtype)
 
 
 # Edits: a part from the recorded answers, then a change. A pass needs the change and nothing else changed
@@ -153,7 +159,9 @@ class Model:
         self.name = name
         self.tok = AutoTokenizer.from_pretrained(name)
         self.model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.bfloat16).to("cuda").eval()
-        if Q4:
+        if Q3:
+            fake_q4f16_1(self.model, group=40, bits=3)
+        elif Q4:
             fake_q4f16_1(self.model)
         info = xgr.TokenizerInfo.from_huggingface(self.tok, vocab_size=self.model.config.get_text_config().vocab_size)
         self.compiler = xgr.GrammarCompiler(info)
@@ -204,10 +212,10 @@ def run(model_name, out_dir):
                       "pass": bool(r["ok"] and held_out_pass(spec, family, want))})
     del m
     torch.cuda.empty_cache()
-    with open(os.path.join(out_dir, model_name.replace("/", "__") + ("-q4" if Q4 else "") + ".json"), "w") as f:
+    with open(os.path.join(out_dir, model_name.replace("/", "__") + ("-q3" if Q3 else "-q4" if Q4 else "") + ".json"), "w") as f:
         json.dump({"suggestions": rows, "held_out": held, "edits": edits}, f, indent=2)
     good = sum(r["ok"] and r["verdict"] != "not printable" for r in rows)
-    print(f"{model_name}{' (q4)' if Q4 else ''}: {good}/{len(rows)} valid & printable, {sum(r['adheres'] for r in rows)}/{len(rows)} "
+    print(f"{model_name}{' (q3)' if Q3 else ' (q4)' if Q4 else ''}: {good}/{len(rows)} valid & printable, {sum(r['adheres'] for r in rows)}/{len(rows)} "
           f"look like the prompt, {sum(r['first_try'] for r in rows)}/{len(rows)} first try; "
           f"held-out {sum(h['pass'] for h in held)}/{len(held)} exact; edits {sum(e['pass'] for e in edits)}/{len(edits)}\n", flush=True)
 
